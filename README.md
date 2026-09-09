@@ -9,8 +9,8 @@
 先安装 **Node.js 24.12 以上的 24.x**。克隆或下载仓库后，进入项目根目录执行：
 
 ```bash
-git clone https://github.com/yoonshilee/typescript-course.git
-cd typescript-course
+git clone https://github.com/yoonshilee/typescript-startup.git
+cd typescript-startup
 npm install -g pnpm@11.22.0
 pnpm install --frozen-lockfile
 pnpm course
