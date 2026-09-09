@@ -53,28 +53,29 @@ if (lessonMatch) {
       const panel = document.createElement("section");
       panel.className = "example-output";
       panel.setAttribute("aria-label", `${name} 的运行结果`);
-      panel.innerHTML = `<div class="example-output__bar"><button class="button example-output__button" type="button" aria-controls="${resultId}">运行示例</button></div><pre id="${resultId}" hidden><code aria-live="polite"></code></pre>`;
+      panel.innerHTML = `<div class="example-output__bar"><button class="example-output__button" type="button" aria-controls="${resultId}"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 12 8 5 13Z" fill="currentColor"/></svg><span>运行示例</span></button></div><pre id="${resultId}" hidden><code aria-live="polite"></code></pre>`;
 
       const button = panel.querySelector("button");
+      const buttonLabel = button.querySelector("span");
       const result = panel.querySelector("pre");
       const resultCode = result.querySelector("code");
       button.addEventListener("click", async () => {
         button.disabled = true;
         button.dataset.state = "loading";
-        button.textContent = "运行中…";
-        result.hidden = false;
+        buttonLabel.textContent = "运行中…";
         result.setAttribute("aria-busy", "true");
-        resultCode.textContent = "正在执行 TypeScript…";
 
         try {
           resultCode.textContent = await runExample(name);
-          delete button.dataset.state;
-          button.textContent = "再次运行";
+          button.dataset.state = "success";
+          buttonLabel.textContent = "再次运行";
         } catch (error) {
           button.dataset.state = "error";
-          button.textContent = "重试";
+          buttonLabel.textContent = "重试";
           resultCode.textContent = error.message;
         } finally {
+          result.dataset.state = button.dataset.state;
+          result.hidden = false;
           result.removeAttribute("aria-busy");
           button.disabled = false;
         }

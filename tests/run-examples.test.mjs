@@ -4,9 +4,92 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 import { findExampleNames } from "../scripts/run-examples.mjs";
 import { createCourseServer } from "../scripts/serve-course.mjs";
+
+test("page reveals completed output without a loading placeholder", async () => {
+  const buttonLabel = { textContent: "运行示例" };
+  const resultCode = { textContent: "" };
+  const attributes = new Map();
+  const result = {
+    hidden: true,
+    dataset: {},
+    querySelector: () => resultCode,
+    setAttribute: (name, value) => attributes.set(name, value),
+    removeAttribute: (name) => attributes.delete(name),
+  };
+  let click;
+  const button = {
+    dataset: {},
+    querySelector: () => buttonLabel,
+    addEventListener: (_, handler) => { click = handler; },
+  };
+  const panel = {
+    setAttribute() {},
+    querySelector: (selector) => selector === "button" ? button : result,
+  };
+  const code = {
+    textContent: "export function demoValue() { return 42; }",
+    parentElement: { after: (element) => assert.equal(element, panel) },
+  };
+  let request = Promise.withResolvers();
+
+  // Minimal DOM doubles run the actual page script without another dependency.
+  runInNewContext(await readFile(new URL("../assets/course.js", import.meta.url), "utf8"), {
+    document: {
+      querySelectorAll: (selector) => selector === "pre > code" ? [code] : [],
+      createElement: () => panel,
+    },
+    window: { location: { pathname: "/lessons/0001-example.html", protocol: "http:" } },
+    fetch: (url) => {
+      assert.equal(url, "/api/examples/01/demoValue");
+      return request.promise;
+    },
+  });
+
+  assert.match(panel.innerHTML, /<pre[^>]* hidden>/);
+  assert.match(panel.innerHTML, /class="example-output__button"/);
+  const firstRun = click();
+  assert.equal(button.disabled, true);
+  assert.equal(button.dataset.state, "loading");
+  assert.equal(buttonLabel.textContent, "运行中…");
+  assert.equal(result.hidden, true);
+  assert.equal(resultCode.textContent, "");
+  request.resolve({ ok: true, json: async () => ({ output: "42" }) });
+  await firstRun;
+  assert.equal(result.hidden, false);
+  assert.equal(resultCode.textContent, "42");
+  assert.equal(result.dataset.state, "success");
+  assert.equal(buttonLabel.textContent, "再次运行");
+  assert.equal(button.disabled, false);
+  assert.equal(attributes.has("aria-busy"), false);
+
+  request = Promise.withResolvers();
+  const rerun = click();
+  assert.equal(result.hidden, false);
+  assert.equal(resultCode.textContent, "42");
+  assert.equal(attributes.get("aria-busy"), "true");
+  request.resolve({ ok: false, json: async () => ({ error: "Example demoValue is unavailable." }) });
+  await rerun;
+  assert.equal(resultCode.textContent, "Example demoValue is unavailable.");
+  assert.equal(result.dataset.state, "error");
+  assert.equal(button.dataset.state, "error");
+  assert.equal(buttonLabel.textContent, "重试");
+  assert.equal(button.disabled, false);
+
+  request = Promise.withResolvers();
+  const retry = click();
+  request.resolve({ ok: true, json: async () => ({ output: "" }) });
+  await retry;
+  assert.equal(result.hidden, false);
+  assert.equal(resultCode.textContent, "");
+  assert.equal(result.dataset.state, "success");
+  assert.equal(button.dataset.state, "success");
+  assert.equal(button.disabled, false);
+  assert.equal(attributes.has("aria-busy"), false);
+});
 
 test("course validation rejects duplicate and non-camelCase example names", async (context) => {
   const root = await mkdtemp(join(tmpdir(), "typescript-course-names-"));
