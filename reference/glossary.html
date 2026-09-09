@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Typescript-Startup 课程术语表。">
+    <title>Reference · 课程术语表</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#reference">跳到速查正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="参考页导航">
+        <a class="context-link" href="../index.html#references">全部速查</a>
+        <a class="context-link" href="../index.html#route">24 课</a>
+      </nav>
+    </header>
+    <main id="reference" class="reference-shell">
+      <header class="reference-header">
+        <h1>课程术语表</h1>
+        <p>统一 TypeScript、JavaScript、Node 与课程工作流中的词义。定义先求可操作，再逐课增加精度。</p>
+        <p class="print-note">REFERENCE 01 / 06 · 建议打印为 A4 纵向</p>
+      </header>
+
+      <section>
+        <h2>语言与运行时</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>术语</th><th>本课程中的含义</th><th>不要混淆</th></tr></thead>
+            <tbody>
+              <tr><td>JavaScript</td><td>决定值、对象、函数与异步代码如何运行的语言</td><td>不是只在浏览器中的脚本</td></tr>
+              <tr><td>TypeScript</td><td>JavaScript 加静态类型语法、检查器与工具链</td><td>不是独立运行时</td></tr>
+              <tr><td>Node.js</td><td>执行 JavaScript 并提供文件、进程、网络等 API 的运行环境</td><td>不是 TypeScript 编译器</td></tr>
+              <tr><td>运行时</td><td>程序实际执行时的值、控制流、I/O 与失败</td><td>静态类型诊断</td></tr>
+              <tr><td>类型剥离</td><td>删除可擦除 TypeScript 类型语法后执行剩余 JavaScript</td><td>完整类型检查</td></tr>
+              <tr><td>编译</td><td>把 TypeScript 转换成可分发 JavaScript 与 source map</td><td>业务测试</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>值、对象与函数</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>术语</th><th>短定义</th><th>快速例子</th></tr></thead>
+            <tbody>
+              <tr><td>值</td><td>运行时被计算、保存、传递或返回的实际数据</td><td><code>42</code>、<code>"note"</code>、<code>{}</code></td></tr>
+              <tr><td>绑定</td><td>作用域中的名字与当前值之间的关联</td><td><code>const title = "A"</code></td></tr>
+              <tr><td>原始值</td><td>非对象的不可变值</td><td>string、number、boolean、null 等</td></tr>
+              <tr><td>对象身份</td><td>对象作为独立实例的引用身份</td><td><code>{} !== {}</code></td></tr>
+              <tr><td>词法作用域</td><td>变量可见性由源码嵌套位置决定</td><td>内层函数向创建位置外层查找</td></tr>
+              <tr><td>闭包</td><td>函数与其创建时可访问词法环境的组合</td><td>返回函数仍读取外层绑定</td></tr>
+              <tr><td>副作用</td><td>除返回值外可被外界观察的变化</td><td>打印、写文件、修改共享对象</td></tr>
+              <tr><td>不可变更新</td><td>返回包含变化的新值，不改输入值</td><td><code>{ ...note, status: "archived" }</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>类型系统</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>术语</th><th>短定义</th><th>主要课程</th></tr></thead>
+            <tbody>
+              <tr><td>推断</td><td>编译器从表达式和上下文得到类型</td><td>05</td></tr>
+              <tr><td>标注</td><td>开发者显式写出的静态约束</td><td>05</td></tr>
+              <tr><td>结构化类型</td><td>按成员形状判断兼容性，而非必须同名声明</td><td>06</td></tr>
+              <tr><td>联合类型</td><td>值可能属于多个候选类型之一</td><td>07</td></tr>
+              <tr><td>收窄</td><td>通过运行时检查缩小当前路径中的候选类型</td><td>07–08</td></tr>
+              <tr><td>判别联合</td><td>共享字面量字段区分不同对象分支的联合</td><td>07</td></tr>
+              <tr><td>泛型</td><td>让类型关系对多种具体类型复用</td><td>09–10</td></tr>
+              <tr><td>穷尽检查</td><td>确保所有联合分支都被处理</td><td>07、16</td></tr>
+              <tr><td>信任边界</td><td>静态类型不能证明的外部输入入口</td><td>08、21–22</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>课程工作流</h2>
+        <dl class="line-notes">
+          <dt>Lesson</dt><dd>包含解释、不同问题示例、Lab、测验与自动验收的一节长课。</dd>
+          <dt>Lab</dt><dd>在 src 中编写或修改 TypeScript，并用测试验收的编号任务。</dd>
+          <dt>Contract</dt><dd>进入下一课前必须能解释、编写与验证的最小能力集合。</dd>
+          <dt>Reference</dt><dd>遗忘时查阅的压缩资料，不替代首次学习。</dd>
+          <dt>Red light</dt><dd>TODO 未完成时测试按设计失败；先阅读第一条失败差异。</dd>
+        </dl>
+      </section>
+    </main>
+    <footer class="foot-line"><p>Reference 01 · Glossary · Typescript-Startup</p></footer>
+  </body>
+</html>

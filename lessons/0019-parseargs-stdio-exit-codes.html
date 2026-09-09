@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="TypeScript 第 19 课：parseArgs、标准输入输出、退出码与命令协议。"><title>Lesson 19 · parseArgs、标准输入输出、退出码与命令协议</title><link rel="stylesheet" href="../assets/course.css?v=4"></head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a><header class="topbar"><a class="brand" href="../index.html">Typescript-Startup</a><nav aria-label="课程导航"><a href="../index.html#route">课程目录</a><a href="../reference/async-and-node-cli.html">本课速查</a></nav></header>
+    <main class="lesson-layout">
+      <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 19 / 24</p><p>建议 100 分钟</p><p>参数先变成命令</p><p>Lab 19</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
+      <article id="lesson" class="lesson-paper">
+        <header class="lesson-title"><p class="eyebrow">CLI · PARSEARGS · STDIO · EXIT STATUS</p><h1>CLI 的第一条边界是把字符串数组解析成领域命令</h1><p class="lead"><code>process.argv</code>、stdin、stdout、stderr 和退出码属于进程协议；“新增笔记”属于应用协议。先用 Node 标准库解析输入，再把结果转换成可判别联合，后续业务就不必反复理解字符串位置。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-19.ts</code>。示例保持零参数导出函数；接收 argv 的解析 Lab 用 <code>/** @lab */</code> 标记。</div></header>
+
+        <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>parseNoteCommand(argv)</code>，支持 <code>add "title"</code>、<code>list [--json]</code> 和 <code>help</code>，非法组合明确抛错。</p><ul><li>理解 process.argv 的 node、入口与用户参数分段。</li><li>使用 <code>node:util.parseArgs</code> 解析选项和位置参数。</li><li>把 stdout、stderr 与退出码按用户结果分类。</li><li>让业务层接收结构化 NoteCommand，而非原始 argv。</li></ul></section>
+
+        <section id="recall" class="lesson-section"><h2>前置回忆：文件函数不应自己解析命令行</h2><pre><code>export function demoBoundaryOrder(): string[] {
+  return ["argv", "NoteCommand", "file operation"];
+}</code></pre><p>第 18 课的 persistNotes 只接受明确参数。CLI 边界先把不可信字符串转成命令，之后再调用文件与领域函数。</p></section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：进程字符串 → 语法 → 命令</h2>
+          <p>第 07 课用七种命令练习联合与穷尽检查；这里先把可执行范围收敛为 add、list、help，供第 24 课编排。两课的命令类型服务于不同阶段，不要直接拿第 07 课的类型替代这里的协议；其余命令可以在完成这条最小链后扩展。</p>
+          <h3>1. process.argv 前两项不属于业务参数</h3><pre><code>export function demoArgvSlice(): string[] {
+  const argv = ["/usr/bin/node", "/app/dist/cli.js", "list"];
+  return argv.slice(2);
+}</code></pre><p>入口通常调用 <code>parseNoteCommand(process.argv.slice(2))</code>。测试直接传用户参数，因此不依赖机器上的 Node 路径。</p>
+
+          <h3>2. parseArgs 拆分 options 与 positionals</h3><pre><code>import { parseArgs } from "node:util";
+
+export function demoParsedOptions() {
+  function parse(args: string[]) {
+    return parseArgs({
+      args,
+      options: { json: { type: "boolean", short: "j" } },
+      allowPositionals: true,
+      strict: true,
+    });
+  }
+
+  return { long: parse(["list", "--json"]), short: parse(["list", "-j"]) };
+}</code></pre>
+          <p>标准库负责 <code>--json</code> 的词法规则与未知选项错误；应用仍要判断 list 能否带额外位置参数。</p>
+          <h4>短选项映射</h4><p>选项定义是唯一映射；业务只读取 json。</p>
+
+          <h3>3. 可判别联合是命令协议</h3><pre><code>export function demoCommandUnion(): string {
+  type Command =
+    | { kind: "add"; title: string }
+    | { kind: "list"; json: boolean }
+    | { kind: "help" };
+  const command: Command = { kind: "list", json: false };
+  return command.kind;
+}</code></pre><p>解析完成后，kind 驱动穷尽分支。业务代码不再读取 <code>positionals[0]</code> 或猜某个布尔选项是否有效。</p>
+
+          <h3>4. stdout 是成功数据，stderr 是诊断</h3><pre><code>export function demoProcessResult() {
+  return [
+    { exitCode: 0, stdout: "n1\tDraft\n", stderr: "" },
+    { exitCode: 1, stdout: "", stderr: "Error: offline\n" },
+    { exitCode: 2, stdout: "", stderr: "Unknown command\n" },
+  ];
+}</code></pre>
+          <p>可脚本化输出放 stdout；用法错误与失败信息放 stderr。退出码 0 表示成功，非 0 表示失败类别。本课不调用 <code>process.exit()</code>，避免截断尚未 flush 的输出。</p>
+          <h4>退出码是结果，不是消息</h4><p>课程约定 0 成功、1 运行失败、2 用法错误；文本仍分别写入正确输出流。</p>
+
+          <div class="callout"><strong>入口职责：</strong>读取 argv → parse → execute → 写 stdout/stderr → 设置 process.exitCode。每一步都可以独立测试。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section"><h2>Java / Python 对照</h2><div class="table-scroll"><table class="comparison-table"><thead><tr><th>问题</th><th>Java</th><th>Python</th><th>Node</th></tr></thead><tbody><tr><td>原始参数</td><td>main(String[] args)</td><td>sys.argv</td><td>process.argv.slice(2)</td></tr><tr><td>参数解析</td><td>库/手写</td><td>argparse</td><td>util.parseArgs</td></tr><tr><td>诊断输出</td><td>System.err</td><td>sys.stderr</td><td>process.stderr</td></tr><tr><td>退出状态</td><td>System.exit</td><td>sys.exit</td><td>process.exitCode</td></tr></tbody></table></div></section>
+
+        <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
+
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 19</code></pre><p>所有无参案例按源码顺序运行；argv Lab 由 <code>/** @lab */</code> 排除。</p></div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>把完整 process.argv 交给解析器。</strong>Node 与入口路径会被当作命令。</li><li><strong>parseArgs 后不做语义校验。</strong>它不知道 add 需要一个标题。</li><li><strong>所有消息都 console.log。</strong>脚本无法区分结果与诊断。</li><li><strong>在深层函数 process.exit。</strong>清理与测试会被突然终止。</li><li><strong>返回 string | undefined 表示命令。</strong>调用者无法穷尽处理。</li><li><strong>为三个命令引入 CLI 框架。</strong>Node 标准库已覆盖当前语法。</li></ul></section>
+
+        <section id="contract" class="lesson-section"><h2>Learning Contract</h2><p>进入自动测试前，你应能把用户 argv 转成稳定的 NoteCommand；说明 parseArgs 与业务语义校验的分工，并为成功、运行错误与用法错误选择 stdout、stderr 和退出码。</p></section>
+
+        <section id="sources" class="lesson-section"><h2>官方资料</h2><ul><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/util.html#utilparseargsconfig">Node.js util.parseArgs</a>：options、positionals 与 strict。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/process.html#processargv">Node.js process.argv</a>：进程参数数组。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/process.html#processexitcode">Node.js process.exitCode</a>：自然退出状态。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/process.html#processstdout">Node.js stdout/stderr</a>：标准流。</li></ul></section>
+
+        <section id="lab" class="lesson-section lab-section"><h2>Lab 19：解析 Developer Notes 命令</h2><p><strong>由你创建或修改：</strong>创建 <code>src/lesson-19.ts</code>，保存本课案例、NoteCommand 与 Lab。</p><p><strong>不要修改：</strong><code>tests/lessons.test.ts</code>、脚本或 package.json。</p>
+          <h3>你要交付什么</h3><pre><code>type NoteCommand =
+  | { readonly kind: "add"; readonly title: string }
+  | { readonly kind: "list"; readonly json: boolean }
+  | { readonly kind: "help" };
+
+parseNoteCommand(argv: readonly string[]): NoteCommand</code></pre>
+          <h3>运行规则</h3><ul><li>parseArgs 开启 strict 与 allowPositionals，只声明 boolean <code>--json</code>/<code>-j</code>。</li><li><code>help</code> 不接受额外参数或 --json。</li><li><code>add</code> 必须恰有一个非空标题，且不接受 --json。</li><li><code>list</code> 不接受额外位置参数，并保留 json 布尔值。</li><li>未知命令与非法组合抛出 Error。</li></ul>
+          <h3>实现限制</h3><p>使用 <code>node:util.parseArgs</code>；不要读取 process、打印、退出、访问文件、使用 any 或类型断言。Lab 前保留 <code>/** @lab */</code>。</p>
+        </section>
+
+        <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 先拆结构</summary><p><code>const { positionals, values } = parseArgs(...)</code>。</p></details><details><summary>提示 2 · 命令在哪里</summary><p>用数组解构取得 command 与 rest。</p></details><details><summary>提示 3 · 标题</summary><p>add 分支检查 rest 长度与 <code>title.trim()</code>，但保留原 title。</p></details></section>
+
+        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="0"><fieldset><legend>parseArgs 应承担哪一层职责？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>parseArgs负责拆参数，业务函数负责命令语义</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>parseArgs负责执行业务，命令函数只负责打印</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+
+        <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>import { parseArgs } from "node:util";
+
+export type NoteCommand =
+  | { readonly kind: "add"; readonly title: string }
+  | { readonly kind: "list"; readonly json: boolean }
+  | { readonly kind: "help" };
+
+/** @lab */
+export function parseNoteCommand(argv: readonly string[]): NoteCommand {
+  const { positionals, values } = parseArgs({
+    args: [...argv],
+    options: { json: { type: "boolean", short: "j" } },
+    allowPositionals: true,
+    strict: true,
+  });
+  const [command, ...rest] = positionals;
+  if (command === "list" &amp;&amp; rest.length === 0) {
+    return { kind: "list", json: values.json ?? false };
+  }
+  if (command === "add" &amp;&amp; rest.length === 1 &amp;&amp; rest[0]?.trim() &amp;&amp; !values.json) {
+    return { kind: "add", title: rest[0] };
+  }
+  if (command === "help" &amp;&amp; rest.length === 0 &amp;&amp; !values.json) {
+    return { kind: "help" };
+  }
+  throw new Error("Invalid note command");
+}</code></pre><dl class="line-notes"><dt>parseArgs</dt><dd>标准库完成选项词法分析。</dd><dt>解构</dt><dd>把第一个位置参数作为命令，其余作为参数。</dd><dt>分支</dt><dd>每个 kind 同时验证允许的选项和参数数量。</dd><dt>失败</dt><dd>所有无效输入统一拒绝，入口再转换为用法错误。</dd></dl></div></details></section>
+
+        <section id="acceptance" class="lesson-section acceptance"><h2>自动验收</h2><pre><code>pnpm lesson 19
+pnpm examples 19</code></pre><p>验收覆盖 add/list/help、长短 json 选项、空标题、额外参数、未知选项和未知命令；静态检查确保 argv 只读且结果可判别。完成后请说明：为什么 parseNoteCommand 不写 stderr？</p></section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航"><a href="0018-node-files-path-process-json.html">← 上一课：文件与 JSON</a><a href="0020-node-test-assert-temp-debug.html">下一课：测试与调试 →</a></nav>
+      </article>
+    </main><footer class="foot-line"><p>Typescript-Startup · Lesson 19 · CLI Protocol · Print-friendly HTML</p></footer><script src="../assets/course.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="TypeScript 第 18 课：Node 文件、路径、进程、JSON 与持久化。">
+    <title>Lesson 18 · Node 文件、路径、进程、JSON 与持久化</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="topbar"><a class="brand" href="../index.html">Typescript-Startup</a><nav aria-label="课程导航"><a href="../index.html#route">课程目录</a><a href="../reference/async-and-node-cli.html">本课速查</a></nav></header>
+    <main class="lesson-layout">
+      <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 18 / 24</p><p>建议 95 分钟</p><p>路径不是字符串拼图</p><p>Lab 18</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
+      <article id="lesson" class="lesson-paper">
+        <header class="lesson-title">
+          <p class="eyebrow">NODE FS · PATH · JSON · PROCESS</p>
+          <h1>持久化先确定路径和编码，再讨论对象</h1>
+          <p class="lead">内存对象不会自动成为文件。Node 的 <code>node:fs/promises</code> 负责异步 I/O，<code>node:path</code> 负责平台路径，JSON 负责把可序列化值变成文本；进程当前目录只是路径解析的一个输入。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-18.ts</code>。案例继续使用顶层零参数导出函数；带 filePath 与 notes 参数的 Lab 用 <code>/** @lab */</code> 标记。</div>
+        </header>
+
+        <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>persistNotes(filePath, notes)</code>：创建父目录，以 UTF-8 写入稳定、可读、换行结尾的 JSON。</p><ul><li>区分相对路径、绝对路径与 cwd。</li><li>使用 path.join/dirname，不手写系统分隔符。</li><li>理解 JSON.stringify 丢失 undefined、函数与原型。</li><li>按顺序 await mkdir 与 writeFile。</li></ul></section>
+
+        <section id="recall" class="lesson-section"><h2>前置回忆：构建产物与数据文件是两类输出</h2><pre><code>export function demoTwoOutputs(): string[] {
+  return ["dist/cli.js", ".notes/notes.json"];
+}</code></pre><p>前者由 TypeScript 构建，可从源码重建；后者由应用持久化，包含用户数据。不要用清理构建目录的思路处理数据目录。</p></section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：值 → JSON 文本 → 字节 → 文件</h2>
+          <h3>1. process.cwd() 是启动位置，不是模块位置</h3>
+          <pre><code>export function demoWorkingDirectory(): boolean {
+  return typeof process.cwd() === "string";
+}</code></pre>
+          <p>用户从哪里启动命令，cwd 就可能在哪里。应用若选择 cwd 作为数据根目录，应明确这是产品契约；不要误认为它永远等于源码目录。</p>
+
+          <h3>2. path.join 使用当前平台分隔符</h3>
+          <pre><code>import path from "node:path";
+
+export function demoJoinedPath() {
+  const file = path.join("workspace", ".notes", "notes.json");
+  return { file, parent: path.dirname(file) };
+}</code></pre>
+          <p>macOS/Linux 通常得到斜杠，Windows 得到反斜杠。路径值交给 path 模块，URL 与模块说明符则遵循另一套语义。</p>
+          <h4>dirname 找父目录</h4><p>先得到父目录，再递归创建；不要通过切割字符串猜路径。</p>
+
+          <h3>3. JSON.stringify 只保存 JSON 数据模型</h3>
+          <pre><code>export function demoJsonBoundary() {
+  const note = { id: "n1", title: "Draft", missing: undefined };
+  return {
+    compact: JSON.stringify(note),
+    readable: `${JSON.stringify(note, null, 2)}\n`,
+  };
+}</code></pre>
+          <p>输出没有 missing。Date 会变成字符串，Map/Set 不会自动保留语义，循环引用会抛错；因此文件格式必须使用明确的普通对象与数组。</p>
+          <h4>格式化 JSON 便于检查</h4><p>两个空格和末尾换行让文件适合版本比较与终端查看。</p>
+
+          <h3>4. Promise I/O 必须按依赖关系 await</h3>
+          <pre><code>export async function demoFileRoundTrip(): Promise&lt;string&gt; {
+  const { mkdtemp, readFile, writeFile, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const directory = await mkdtemp(path.join(tmpdir(), "notes-example-"));
+  const file = path.join(directory, "note.txt");
+  try {
+    await writeFile(file, "Draft", "utf8");
+    return await readFile(file, "utf8");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}</code></pre>
+          <p>写入依赖目录存在，读取依赖写入完成，所以顺序 await 是真实因果关系。return await 等待读取结束，再由 finally 清理临时目录，反复点击也不会遗留文件。第 15 课的并发只适合互不依赖的操作。</p>
+          <div class="callout"><strong>边界：</strong>本课只做直接写入；崩溃时不留下半文件的原子替换将在第 22 课处理。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section"><h2>Java / Python 对照</h2><div class="table-scroll"><table class="comparison-table"><thead><tr><th>TypeScript / Node</th><th>Java</th><th>Python</th><th>注意</th></tr></thead><tbody><tr><td>node:fs/promises</td><td>Files async wrapper</td><td>pathlib + async library</td><td>方法返回 Promise</td></tr><tr><td>node:path</td><td>Path</td><td>pathlib.Path</td><td>平台分隔符</td></tr><tr><td>JSON.stringify</td><td>JSON library</td><td>json.dumps</td><td>运行时无类型信息</td></tr><tr><td>process.cwd()</td><td>user.dir</td><td>os.getcwd()</td><td>由启动位置决定</td></tr></tbody></table></div></section>
+
+        <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
+
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 18</code></pre><p>异步文件案例会被 await；参数化持久化 Lab 被 <code>/** @lab */</code> 排除。</p></div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>用字符串拼接路径。</strong>跨平台分隔符与重复斜杠会出错。</li><li><strong>不写 encoding。</strong>readFile 默认返回 Buffer。</li><li><strong>忘记 await 写入。</strong>进程可能在数据落盘前结束。</li><li><strong>把 JSON.parse 当成校验。</strong>它只保证语法，不能证明字段结构。</li><li><strong>直接保存 Map、Error 或 class。</strong>JSON 不保留这些运行时语义。</li><li><strong>并发写同一文件。</strong>writeFile 调用必须由应用串行化。</li></ul></section>
+
+        <section id="contract" class="lesson-section"><h2>Learning Contract</h2><p>进入命令协议前，你应能解释一个相对路径依据哪个 cwd 解析、为什么 path.join 优于手写分隔符、JSON 转换会丢失什么，以及为什么依赖关系上的文件操作必须 await。</p></section>
+
+        <section id="sources" class="lesson-section"><h2>官方资料</h2><ul><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/fs.html#promises-api">Node.js File system promises</a>：异步文件 API。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/path.html">Node.js Path</a>：跨平台路径操作。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/process.html#processcwd">Node.js process.cwd()</a>：当前工作目录。</li><li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify">MDN JSON.stringify</a>：可序列化值与遗漏规则。</li></ul></section>
+
+        <section id="lab" class="lesson-section lab-section"><h2>Lab 18：把 notes 写成明确的 JSON 文件</h2>
+          <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-18.ts</code>，保存案例和 Lab。</p><p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与课程脚本。</p>
+          <h3>你要交付什么</h3><pre><code>type PersistedNote = {
+  readonly id: string;
+  readonly title: string;
+};
+
+persistNotes(
+  filePath: string,
+  notes: readonly PersistedNote[],
+): Promise&lt;void&gt;</code></pre>
+          <h3>运行规则</h3><ul><li>用 <code>path.dirname(filePath)</code> 得到父目录。</li><li>先 <code>mkdir(..., { recursive: true })</code>。</li><li>把 notes 复制成普通数组，以两空格格式化并加末尾换行。</li><li>用 UTF-8 writeFile，完成后 Promise 才 fulfilled。</li></ul>
+          <h3>实现限制</h3><p>使用 Node 标准库；不要 catch、同步 I/O、全局 cwd、类型断言或原子临时文件。Lab 前保留 <code>/** @lab */</code>。</p>
+        </section>
+
+        <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 父目录</summary><p><code>dirname(filePath)</code>。</p></details><details><summary>提示 2 · 稳定文本</summary><p><code>JSON.stringify([...notes], null, 2) + "\n"</code>。</p></details><details><summary>提示 3 · 写入顺序</summary><p>await mkdir，再 await writeFile。</p></details></section>
+
+        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="1"><fieldset><legend>怎样生成跨平台文件路径？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>join固定生成斜杠路径，可以手写分隔符号</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>join按当前系统生成路径，不能手写分隔符</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+
+        <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+export type PersistedNote = {
+  readonly id: string;
+  readonly title: string;
+};
+
+/** @lab */
+export async function persistNotes(
+  filePath: string,
+  notes: readonly PersistedNote[],
+): Promise&lt;void&gt; {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  const json = `${JSON.stringify([...notes], null, 2)}\n`;
+  await writeFile(filePath, json, "utf8");
+}</code></pre><dl class="line-notes"><dt>导入</dt><dd>只用 Promise 文件 API 与平台路径 API。</dd><dt>mkdir</dt><dd>确保嵌套父目录存在。</dd><dt>stringify</dt><dd>复制只读输入，产生可读文本与末尾换行。</dd><dt>writeFile</dt><dd>明确 UTF-8，并把完成状态暴露给调用者。</dd></dl></div></details></section>
+
+        <section id="acceptance" class="lesson-section acceptance"><h2>自动验收</h2><pre><code>pnpm lesson 18
+pnpm examples 18</code></pre><p>验收在临时目录读取真实文件，检查嵌套目录、UTF-8 文本、格式、末尾换行、空数组和输入不变。完成后请说明：为什么本课实现还不是原子写入？</p></section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航"><a href="0017-package-pnpm-tsconfig-check-build.html">← 上一课：工具链</a><a href="0019-parseargs-stdio-exit-codes.html">下一课：命令协议 →</a></nav>
+      </article>
+    </main>
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 18 · Files and JSON · Print-friendly HTML</p></footer><script src="../assets/course.js" defer></script>
+  </body>
+</html>

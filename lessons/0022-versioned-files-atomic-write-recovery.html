@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="TypeScript 第 22 课：版本化文件、损坏数据、原子写入与恢复。"><title>Lesson 22 · 版本化文件、损坏数据、原子写入与恢复</title><link rel="stylesheet" href="../assets/course.css?v=4"></head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a><header class="topbar"><a class="brand" href="../index.html">Typescript-Startup</a><nav aria-label="课程导航"><a href="../index.html#route">课程目录</a><a href="../reference/async-and-node-cli.html">本课速查</a></nav></header>
+    <main class="lesson-layout">
+      <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 22 / 24</p><p>建议 110 分钟</p><p>失败不能毁掉旧数据</p><p>Lab 22</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
+      <article id="lesson" class="lesson-paper">
+        <header class="lesson-title"><p class="eyebrow">VERSIONED FORMAT · TEMP FILE · RENAME · RECOVERY</p><h1>可靠写入的最低标准：新文件完整后，才替换旧文件</h1><p class="lead">直接 writeFile 目标路径可能在进程中断时留下半截 JSON。版本字段解决“怎样解释数据”，同目录临时文件加 rename 解决“怎样一次切换到新数据”，finally 清理解决“失败后留下什么”。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-22.ts</code>。安全模型实验保持零参数导出；接收路径与 notes 的原子写入 Lab 用 <code>/** @lab */</code>。</div></header>
+
+        <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>writeNotesAtomically(filePath, notes)</code>，写入 <code>{ version: 1, notes }</code>，同目录生成唯一临时文件，成功 rename，任何路径都清理临时文件。</p><ul><li>用版本号区分文件协议。</li><li>区分语法损坏、结构无效与不支持版本。</li><li>理解同目录临时文件为何关键。</li><li>保证失败不主动删除旧目标文件。</li></ul></section>
+
+        <section id="recall" class="lesson-section"><h2>前置回忆：JSON.parse 成功不等于结构可信</h2><pre><code>export function demoVersionField(): number {
+  const file: unknown = JSON.parse('{"version":1,"notes":[]}');
+  if (typeof file !== "object" || file === null || !("version" in file)) return 0;
+  return file.version === 1 ? 1 : 0;
+}</code></pre><p>第 21 课的 unknown 校验仍适用于文件读取；version 是选择解析器的协议字段，不是装饰性元数据。</p></section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：生成、落盘、切换、清理</h2>
+          <h3>1. 版本是格式，不是应用版本</h3><pre><code>export function demoFileEnvelope() {
+  const file = { version: 1, notes: [{ id: "n1", title: "Draft" }] };
+  return { file, text: `${JSON.stringify(file, null, 2)}\n` };
+}</code></pre>
+          <p>应用升级不一定改变文件格式；只有持久化协议改变才增加 version。读取器应显式拒绝未知版本或执行已设计迁移。</p>
+          <h4>稳定序列化</h4><p>明确 envelope、缩进与末尾换行，便于读取、诊断与未来迁移。</p>
+
+          <h3>2. 损坏分三类</h3><pre><code>export function demoCorruptionKinds(): string[] {
+  return ["invalid JSON", "invalid shape", "unsupported version"];
+}</code></pre><p>语法错误来自 JSON.parse；结构错误来自运行时校验；版本错误来自协议选择。错误消息可以不同，但都不能悄悄当成空笔记覆盖旧数据。</p>
+
+          <h3>3. 临时文件必须和目标在同一目录</h3><pre><code>import path from "node:path";
+import { randomUUID } from "node:crypto";
+
+export function demoTempPath(): boolean {
+  const target = path.join("data", "notes.json");
+  const temporary = path.join(path.dirname(target), `.notes.${randomUUID()}.tmp`);
+  return path.dirname(target) === path.dirname(temporary);
+}</code></pre>
+          <p>同目录通常意味着同一文件系统，rename 才能作为一次名字切换。写到系统 tmp 后再跨卷移动可能失败，也失去原子替换保证。</p>
+          <h4>唯一后缀避免并发撞名</h4><p>每次写入使用独立临时路径；固定 .tmp 文件会让并发调用互相覆盖。</p>
+
+          <h3>4. rename 之前旧文件保持不变</h3><pre><code>export function demoAtomicSequence(): string[] {
+  return ["write temp", "rename temp to target", "remove leftover temp"];
+}</code></pre><p>写临时文件失败时，目标未触碰；rename 成功后目标整体变成新内容；finally 对不存在的临时文件使用 force 清理。</p>
+
+          <h3>5. 危险的直接覆盖不自动运行</h3><pre><code>/** @example-skip */
+function demoDirectOverwrite(): string {
+  return "writeFile(target) can truncate before the new payload completes";
+}</code></pre><p>此函数只说明危险序列，不执行真实覆盖，因此用 <code>@example-skip</code> 保持非导出。</p>
+          <div class="callout"><strong>诚实边界：</strong>原子 rename 防止半文件，不等于事务系统；它不解决多进程并发、磁盘硬件保证、备份与跨版本迁移。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section"><h2>Java / Python 对照</h2><div class="table-scroll"><table class="comparison-table"><thead><tr><th>步骤</th><th>Java</th><th>Python</th><th>Node</th></tr></thead><tbody><tr><td>唯一名</td><td>UUID</td><td>uuid4</td><td>crypto.randomUUID</td></tr><tr><td>写临时文件</td><td>Files.writeString</td><td>Path.write_text</td><td>fsPromises.writeFile</td></tr><tr><td>替换</td><td>Files.move</td><td>os.replace</td><td>fsPromises.rename</td></tr><tr><td>清理</td><td>finally deleteIfExists</td><td>finally unlink</td><td>finally rm(force)</td></tr></tbody></table></div></section>
+
+        <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
+
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 22</code></pre><p>安全函数正常运行；危险直接覆盖用 <code>/** @example-skip */</code> 排除，Lab 用 <code>/** @lab */</code> 排除。</p></div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>解析失败就返回空数组。</strong>下一次保存会永久覆盖可恢复数据。</li><li><strong>临时文件放系统 tmp。</strong>跨文件系统 rename 可能失败。</li><li><strong>使用固定 .tmp 名。</strong>并发写入互相破坏。</li><li><strong>先删除目标再 rename。</strong>制造没有任何有效文件的窗口。</li><li><strong>只在成功时清理。</strong>失败会无限堆积临时文件。</li><li><strong>声称等同数据库事务。</strong>多进程协调和持久化级别尚未解决。</li></ul></section>
+
+        <section id="contract" class="lesson-section"><h2>Learning Contract</h2><p>进入可安装 CLI 前，你应能解释版本字段、三类损坏、同目录临时文件与 rename 的责任，写出失败不覆盖旧数据且总会清理临时文件的最小序列。</p></section>
+
+        <section id="sources" class="lesson-section"><h2>官方资料</h2><ul><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/fs.html#fspromiseswritefilefile-data-options">Node.js writeFile</a>：Promise 写入与并发警告。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/fs.html#fspromisesrenameoldpath-newpath">Node.js rename</a>：路径替换。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/fs.html#fspromisesrmpath-options">Node.js rm</a>：force 清理。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/crypto.html#cryptorandomuuidoptions">Node.js randomUUID</a>：唯一临时名称。</li></ul></section>
+
+        <section id="lab" class="lesson-section lab-section"><h2>Lab 22：原子写入版本 1 notes 文件</h2><p><strong>由你创建或修改：</strong>创建 <code>src/lesson-22.ts</code>，保存案例、VersionedNote 与 Lab。</p><p><strong>不要修改：</strong><code>tests/lessons.test.ts</code>、runner 或真实用户数据。</p>
+          <h3>你要交付什么</h3><pre><code>type VersionedNote = {
+  readonly id: string;
+  readonly title: string;
+};
+
+writeNotesAtomically(
+  filePath: string,
+  notes: readonly VersionedNote[],
+): Promise&lt;void&gt;</code></pre>
+          <h3>运行规则</h3><ul><li>递归创建目标父目录。</li><li>临时文件位于同一父目录，名称含 randomUUID。</li><li>以 flag <code>wx</code>、UTF-8 写入版本 1 envelope、两空格和末尾换行。</li><li>写完后 rename 到目标。</li><li>finally 用 <code>rm(tempPath, { force: true })</code> 清理。</li></ul>
+          <h3>实现限制</h3><p>仅用 Node 标准库；不要先删除目标、同步 I/O、catch 后吞错、备份系统或锁。Lab 前保留 <code>/** @lab */</code>。</p>
+        </section>
+
+        <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 临时路径</summary><p>组合 dirname、basename 与 randomUUID，确保同目录。</p></details><details><summary>提示 2 · try 包住什么</summary><p>writeFile 与 rename 放在 try，rm 放 finally。</p></details><details><summary>提示 3 · rename 成功后</summary><p>旧 tempPath 已不存在，force rm 仍安全。</p></details></section>
+
+        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="1"><fieldset><legend>怎样避免失败时留下半个目标文件？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>直接覆盖目标文件，失败之后才尝试恢复原有文件</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>先写同目录临时文件，再rename替换原文件</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+
+        <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>import { randomUUID } from "node:crypto";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+export type VersionedNote = {
+  readonly id: string;
+  readonly title: string;
+};
+
+/** @lab */
+export async function writeNotesAtomically(
+  filePath: string,
+  notes: readonly VersionedNote[],
+): Promise&lt;void&gt; {
+  const directory = path.dirname(filePath);
+  await mkdir(directory, { recursive: true });
+  const temporaryPath = path.join(
+    directory,
+    `.${path.basename(filePath)}.${randomUUID()}.tmp`,
+  );
+  const json = `${JSON.stringify({ version: 1, notes: [...notes] }, null, 2)}\n`;
+  try {
+    await writeFile(temporaryPath, json, { encoding: "utf8", flag: "wx" });
+    await rename(temporaryPath, filePath);
+  } finally {
+    await rm(temporaryPath, { force: true });
+  }
+}</code></pre><dl class="line-notes"><dt>目录</dt><dd>目标父目录也是临时文件目录。</dd><dt>唯一名</dt><dd>basename 便于诊断，UUID 避免碰撞。</dd><dt>写入</dt><dd>wx 防止意外覆盖已有临时文件。</dd><dt>切换</dt><dd>只有完整写入后才 rename。</dd><dt>清理</dt><dd>成功与失败都删除可能残留的临时路径。</dd></dl></div></details></section>
+
+        <section id="acceptance" class="lesson-section acceptance"><h2>自动验收</h2><pre><code>pnpm lesson 22
+pnpm examples 22</code></pre><p>验收读取真实版本化文件，检查替换旧目标、同目录无 temp 残留、空 notes、输入不变与静态类型。完成后请指出：这套方案仍未解决哪一种并发写入问题？</p></section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航"><a href="0021-api-unknown-runtime-validation.html">← 上一课：运行时校验</a><a href="0023-bin-shebang-build-cross-platform.html">下一课：可安装 CLI →</a></nav>
+      </article>
+    </main><footer class="foot-line"><p>Typescript-Startup · Lesson 22 · Atomic Persistence · Print-friendly HTML</p></footer><script src="../assets/course.js" defer></script>
+  </body>
+</html>

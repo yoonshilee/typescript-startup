@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="TypeScript 第 20 课：node:test、断言、临时目录与调试。"><title>Lesson 20 · node:test、断言、临时目录与调试</title><link rel="stylesheet" href="../assets/course.css?v=4"></head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a><header class="topbar"><a class="brand" href="../index.html">Typescript-Startup</a><nav aria-label="课程导航"><a href="../index.html#route">课程目录</a><a href="../reference/async-and-node-cli.html">本课速查</a></nav></header>
+    <main class="lesson-layout">
+      <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 20 / 24</p><p>建议 95 分钟</p><p>失败必须可复现</p><p>Lab 20</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
+      <article id="lesson" class="lesson-paper">
+        <header class="lesson-title"><p class="eyebrow">NODE:TEST · ASSERT · TEMP DIRECTORY · DEBUG</p><h1>测试不是“跑过代码”，而是让错误结果必然失败</h1><p class="lead">Node 内置 test runner 负责发现、隔离和报告测试；assert 负责把不满足的事实变成异常。文件测试使用唯一临时目录，调试输出只补充证据，不能替代断言。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-20.ts</code>。可运行断言实验仍是零参数导出函数；接收 notes 的 Lab 用 <code>/** @lab */</code> 标记。</div></header>
+
+        <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>findDuplicateNoteIds(notes)</code>，按第二次出现顺序报告每个重复 id 一次，并用最小测试锁定行为。</p><ul><li>区分测试安排、执行与断言。</li><li>使用 strictEqual/deepEqual/rejects 的正确语义。</li><li>为文件测试创建唯一临时目录并清理。</li><li>从最小失败输入定位根因，而不是堆日志。</li></ul></section>
+
+        <section id="recall" class="lesson-section"><h2>前置回忆：依赖注入让边界可独立验证</h2><pre><code>export function demoTestableBoundary(): string[] {
+  return ["input", "pure function", "asserted output"];
+}</code></pre><p>第 19 课解析函数不读取真实 process，因此测试只传 argv。相同原则让领域逻辑不需要真实 CLI 或主目录。</p></section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：可观察输入、行为与输出</h2>
+          <h3>1. assert 抛出才会让测试失败</h3><pre><code>import assert from "node:assert/strict";
+
+export function demoStrictAssertion(): string {
+  assert.equal(1 + 1, 2);
+  const first = { id: "n1" };
+  const second = { id: "n1" };
+  assert.notEqual(first, second);
+  assert.deepEqual(first, second);
+  return "passed";
+}</code></pre>
+          <p>equal 适合原始值或对象身份，deepEqual 比较结构。打印 actual 与 expected 但不 assert，测试仍会错误地通过。</p>
+          <h4>对象身份不等于结构相等</h4><p>notEqual 验证 first 与 second 不是同一对象，deepEqual 验证它们的数据结构相等。两条断言同时通过才返回 passed；选择 assertion 前先明确比较的是身份还是数据。</p>
+
+          <h3>2. async 测试返回 Promise</h3><pre><code>export async function demoRejectedPromise(): Promise&lt;string&gt; {
+  await assert.rejects(
+    Promise.reject(new Error("offline")),
+    /offline/,
+  );
+  return "rejection observed";
+}</code></pre><p>test callback 返回的 Promise 若拒绝，runner 自动失败。必须 await assert.rejects，否则测试可能在断言完成前结束。</p>
+
+          <h3>3. 文件测试使用唯一目录</h3><pre><code>import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+export async function demoTemporaryDirectory(): Promise&lt;boolean&gt; {
+  const directory = await mkdtemp(path.join(tmpdir(), "notes-test-"));
+  try {
+    return path.isAbsolute(directory);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}</code></pre><p>唯一目录避免并行测试互相覆盖；finally 保证成功与失败都清理。不要把测试数据写进仓库或用户真实目录。</p>
+
+          <h3>4. 测试名描述行为，不复述函数名</h3><pre><code>export function demoBehaviorName(): string {
+  return "reports each duplicate id once in encounter order";
+}</code></pre><p>失败报告应直接说明哪个契约破坏。一个测试可覆盖一个紧密行为，边界案例则用独立输入表达。</p>
+          <div class="callout"><strong>调试循环：</strong>先得到稳定红灯 → 缩小输入 → 检查真实值 → 修根因 → 保留最小回归测试。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section"><h2>Java / Python 对照</h2><div class="table-scroll"><table class="comparison-table"><thead><tr><th>Node</th><th>JUnit</th><th>pytest</th><th>共同点</th></tr></thead><tbody><tr><td>test()</td><td>@Test</td><td>test_*</td><td>失败异常决定结果</td></tr><tr><td>assert/strict</td><td>Assertions</td><td>assert</td><td>比较可观察事实</td></tr><tr><td>mkdtemp</td><td>@TempDir</td><td>tmp_path</td><td>隔离文件状态</td></tr><tr><td>--test-name-pattern</td><td>方法过滤</td><td>-k</td><td>缩小反馈范围</td></tr></tbody></table></div></section>
+
+        <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
+
+          <div class="example"><h3>示例 A：小输入更容易定位</h3><pre><code>export function demoMinimalFailureInput(): string[] {
+  return ["n1", "n1"];
+}</code></pre><p>验证重复检测只需要两个相同 id，不需要构造完整 CLI 会话。</p></div>
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 20</code></pre><p>runner 会 await 异步断言与临时目录案例；参数化 Lab 被 <code>/** @lab */</code> 排除。</p></div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>只看“没有抛错”。</strong>没有断言的测试证明不了结果。</li><li><strong>忘记 await rejects。</strong>异步断言可能逃出测试生命周期。</li><li><strong>复用固定临时路径。</strong>并发或上次残留会污染结果。</li><li><strong>测试私有实现步骤。</strong>重构会造成无意义破坏。</li><li><strong>一次塞入十个行为。</strong>失败时无法定位哪条契约断裂。</li><li><strong>先改代码再找复现。</strong>无法确认测试真的捕获原问题。</li></ul></section>
+
+        <section id="contract" class="lesson-section"><h2>Learning Contract</h2><p>进入 Web/API 边界前，你应能留下一个会在行为退化时失败的测试，正确等待异步断言，以临时目录隔离文件副作用，并用失败消息和最小输入定位问题。</p></section>
+
+        <section id="sources" class="lesson-section"><h2>官方资料</h2><ul><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/test.html">Node.js Test runner</a>：同步、Promise 与 callback 测试。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/assert.html">Node.js assert/strict</a>：严格断言。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/fs.html#fspromisesmkdtempprefix-options">Node.js mkdtemp</a>：唯一临时目录。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/cli.html#--test-name-pattern">Node.js test name pattern</a>：缩小测试范围。</li></ul></section>
+
+        <section id="lab" class="lesson-section lab-section"><h2>Lab 20：找出重复 note id</h2><p><strong>由你创建或修改：</strong>创建 <code>src/lesson-20.ts</code>，保存案例、DuplicateNote 与 Lab。</p><p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与课程 runner。</p>
+          <h3>你要交付什么</h3><pre><code>type DuplicateNote = { readonly id: string };
+
+findDuplicateNoteIds(
+  notes: readonly DuplicateNote[],
+): string[]</code></pre>
+          <h3>运行规则</h3><ul><li>第一次出现只记录 seen。</li><li>第二次出现把 id 加入结果。</li><li>第三次及以后不重复报告同一 id。</li><li>结果按各 id 第二次出现的顺序排列。</li><li>不修改输入。</li></ul>
+          <h3>实现限制</h3><p>使用两个 Set 与一次循环；不要排序、嵌套扫描、Map 计数或类型断言。Lab 前保留 <code>/** @lab */</code>。</p>
+        </section>
+
+        <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 两种状态</summary><p>一个 Set 表示见过，另一个表示已经报告。</p></details><details><summary>提示 2 · 何时 push</summary><p>seen 有 id 且 duplicates 没有时。</p></details><details><summary>提示 3 · 一次循环</summary><p>每次处理后确保 seen 包含当前 id。</p></details></section>
+
+        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="1"><fieldset><legend>Node 测试怎样判定失败？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>测试失败必须手动退出，异步拒绝不会失败</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>测试失败就是断言抛出，异步拒绝也会失败</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+
+        <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>export type DuplicateNote = { readonly id: string };
+
+/** @lab */
+export function findDuplicateNoteIds(
+  notes: readonly DuplicateNote[],
+): string[] {
+  const seen = new Set&lt;string&gt;();
+  const reported = new Set&lt;string&gt;();
+  const duplicates: string[] = [];
+  for (const { id } of notes) {
+    if (seen.has(id) &amp;&amp; !reported.has(id)) {
+      duplicates.push(id);
+      reported.add(id);
+    }
+    seen.add(id);
+  }
+  return duplicates;
+}</code></pre><dl class="line-notes"><dt>集合</dt><dd>seen 与 reported 分别表达两个可测试状态。</dd><dt>条件</dt><dd>只在第二次首次发现重复时记录。</dd><dt>顺序</dt><dd>push 自然保留第二次出现顺序，无需排序。</dd><dt>复杂度</dt><dd>单次遍历，输入保持只读。</dd></dl></div></details></section>
+
+        <section id="acceptance" class="lesson-section acceptance"><h2>自动验收</h2><pre><code>pnpm lesson 20
+pnpm examples 20</code></pre><p>验收覆盖无重复、一次重复、多次重复、多个 id 的发现顺序、空输入与只读静态契约。完成后请先写出能让“重复报告三次”实现失败的最小输入。</p></section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航"><a href="0019-parseargs-stdio-exit-codes.html">← 上一课：命令协议</a><a href="0021-api-unknown-runtime-validation.html">下一课：运行时校验 →</a></nav>
+      </article>
+    </main><footer class="foot-line"><p>Typescript-Startup · Lesson 20 · Node Test · Print-friendly HTML</p></footer><script src="../assets/course.js" defer></script>
+  </body>
+</html>

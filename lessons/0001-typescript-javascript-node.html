@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 01 课：学习 TypeScript 的变量、类型标注、函数与模板字符串，并完成第一个可检查程序。">
+    <title>第 01 课 · TypeScript 基础语法</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/type-system.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 01 / 24</p>
+          <p class="lesson-meta">建议 70 分钟<br>基础语法与函数<br>Lab 01</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 01</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>先写起来：变量、类型标注、函数与模板字符串</h1>
+          <p class="lesson-lead">第一课只解决一个直接问题：怎样读懂并写出一小段 TypeScript。先建立语法手感；TypeScript、JavaScript 与 Node 的职责边界和执行机制留到第 13 课集中解释。</p>
+          <div class="callout"><strong>本课代码文件：</strong>把所有 TypeScript 练习依次放入 <code>src/lesson-01.ts</code>。可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>formatWelcome(name)</code>，让它返回英文欢迎语，并通过第 01 课公开行为测试。</p>
+          <ul>
+            <li>读懂变量声明、参数类型和返回类型。</li>
+            <li>使用模板字符串组合固定文本与参数。</li>
+            <li>通过课程命令检查函数的输入与精确输出。</li>
+          </ul>
+          <p><strong>时间预算：</strong>阅读与跟写 35 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：函数的形状并不陌生</h2>
+          <p>你已经在 Java 或 Python 中写过“接收输入，返回结果”的函数。TypeScript 的第一步不是理解一套新运行机制，而是先认出同一结构换了哪些符号。</p>
+          <pre><code>// Java
+String formatWelcome(String name) {
+  return "Welcome, " + name + ".";
+}
+
+# Python
+def format_welcome(name: str) -&gt; str:
+    return f"Welcome, {name}."
+
+// TypeScript
+export function demoWelcome(): string {
+  function buildWelcome(name: string): string {
+    return `Welcome, ${name}.`;
+  }
+
+  return buildWelcome("Ada");
+}</code></pre>
+          <p>外层案例不需要调用者准备参数；固定样例放在函数内部。先观察内部 TypeScript helper 并回答：</p>
+          <ol>
+            <li>函数名在哪里？</li>
+            <li>参数名和参数类型分别是什么？</li>
+            <li>哪个 <code>string</code> 描述返回值？</li>
+          </ol>
+          <h3>模板字符串把文本和表达式组合起来</h3>
+          <p>仍看上面的 <code>buildWelcome</code>：模板字符串使用反引号，<code>${name}</code> 把参数值嵌入文本，所以本例返回 <code>Welcome, Ada.</code>。外层案例负责固定调试输入，内部 helper 保留 Lab 所需的参数语法。</p>
+          <div class="callout"><strong>阅读顺序：</strong>先找声明关键字与名字，再读类型，最后读等号右侧或函数体。不要试图一次解释整行。</div>
+          <blockquote>本课先学会读和写。执行链、类型擦除与 Node 的角色会在语言基础稳定后再解释。</blockquote>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：先把一行代码拆成可识别的语法部件</h2>
+
+          <h3>1. 用 const 和 let 声明变量</h3>
+          <pre><code>export function demoVariableBindings(): string {
+  const courseName: string = "TypeScript";
+  let lessonNumber: number = 1;
+
+  lessonNumber = 2;
+  return `${courseName}: lesson ${lessonNumber}`;
+}</code></pre>
+          <p><code>const</code> 用于不重新赋值的变量，<code>let</code> 用于之后需要重新赋值的变量。变量名后面的 <code>: string</code> 和 <code>: number</code> 是类型标注，等号右侧是初始值。</p>
+
+          <h3>2. 先掌握三种常用基础类型</h3>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>类型</th><th>示例值</th><th>适合表达</th></tr></thead>
+              <tbody>
+                <tr><td><code>string</code></td><td><code>"Ada"</code></td><td>名字、标题、消息</td></tr>
+                <tr><td><code>number</code></td><td><code>24</code></td><td>数量、索引、时长</td></tr>
+                <tr><td><code>boolean</code></td><td><code>true</code></td><td>是/否状态</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>3. 函数声明同时写出输入、输出和处理步骤</h3>
+          <pre><code>export function demoDouble(): number {
+  function double(value: number): number {
+    return value * 2;
+  }
+
+  return double(3);
+}</code></pre>
+          <p><code>demoDouble</code> 是可直接运行的无参案例；内部 <code>double</code> helper 接收数字参数。<code>value: number</code> 声明参数类型，右括号后的 <code>: number</code> 声明返回值类型，最后一行用固定样例 <code>3</code> 调试它。</p>
+
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照：先把符号映射清楚</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>目的</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>声明不可重新赋值的名字</td><td><code>final String name</code></td><td>按约定不重绑</td><td><code>const name: string</code></td></tr>
+                <tr><td>声明可重新赋值的名字</td><td><code>int count</code></td><td><code>count: int</code></td><td><code>let count: number</code></td></tr>
+                <tr><td>参数类型</td><td>类型写在参数名前</td><td><code>name: str</code></td><td><code>name: string</code></td></tr>
+                <tr><td>返回类型</td><td>写在函数名前</td><td><code>-&gt; str</code></td><td>写在参数列表后：<code>: string</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>对照只帮助你找到入口。现在先记住 TypeScript 的书写位置，不急着解释三种语言为什么形成这些差异；第 13 课会回到更完整的执行模型。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>从声明到函数的三个示例</h2>
+
+          <div class="example">
+            <h3>示例 A：标注与初始值保持一致</h3>
+            <pre><code>export function demoLessonInfo(): string {
+  const lessonTitle: string = "Basic syntax";
+  const lessonNumber: number = 1;
+  const published: boolean = true;
+
+  return `${lessonNumber}: ${lessonTitle}, published=${published}`;
+}</code></pre>
+            <p>冒号左侧是变量名，右侧是类型；等号后是这个变量当前保存的值。三个声明分别表达文本、数字和布尔状态。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：参数和返回值可以使用不同类型</h3>
+            <pre><code>export function demoTextCheck(): boolean {
+  function hasText(value: string): boolean {
+    return value.length &gt; 0;
+  }
+
+  return hasText("TypeScript");
+}</code></pre>
+            <p>内部 helper 接收字符串并返回布尔值。参数类型写在参数名后，返回类型写在右括号后；外层案例使用固定字符串调用它。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：模板字符串可以包含多个表达式</h3>
+            <pre><code>export function demoLessonDescription(): string {
+  function describeLesson(title: string, minutes: number): string {
+    return `${title} takes ${minutes} minutes.`;
+  }
+
+  return describeLesson("Basic syntax", 70);
+}</code></pre>
+            <p>内部 helper 的两个占位位置分别读取 <code>title</code> 和 <code>minutes</code>。固定空格和句点也是返回值的一部分。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 01</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>把基础类型写成 <code>String</code>、<code>Number</code>。</strong> 本课程使用小写的 <code>string</code>、<code>number</code> 和 <code>boolean</code>。</li>
+            <li><strong>默认使用 <code>let</code>。</strong> 如果名字不需要重新赋值，先使用 <code>const</code>；需求变化时再改成 <code>let</code>。</li>
+            <li><strong>忘记返回值。</strong> 写了 <code>: string</code> 不会自动产生字符串；函数体仍需要 <code>return</code>。</li>
+            <li><strong>用普通引号写插值。</strong> <code>"Welcome, ${name}."</code> 不会形成模板插值；需要使用反引号。</li>
+            <li><strong>忽略精确输出。</strong> 空格、大小写和末尾句点都属于函数返回值。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入第 02 课前，你应当能够：</p>
+          <ul>
+            <li>拆解 <code>const name: string = "Ada"</code> 的声明关键字、名字、类型与初始值。</li>
+            <li>选择 <code>const</code> 或 <code>let</code> 表达是否需要重新赋值。</li>
+            <li>写出带参数类型和返回类型的函数声明。</li>
+            <li>使用模板字符串生成包含参数的精确文本。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html">TypeScript Handbook: Everyday Types</a>：先读 primitives、type annotations on variables 与 functions。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/variable-declarations.html">TypeScript Handbook: Variable Declaration</a>：对照 <code>let</code> 与 <code>const</code>。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals">MDN: Template literals</a>：只看反引号与 <code>${expression}</code> 的基础写法。</li>
+          </ul>
+          <p>不需要一次读完整章。能把资料中的一个声明和一个函数改写成自己的例子，就达到本课目标。</p>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 01：用基础语法完成第一个函数</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-01.ts</code>，把本课示例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+            <p><strong>本课先会用 <code>export</code>：</strong>把它写在 Lab 函数前，验收脚本才能导入这个函数。这里只把它当作公开 Lab 的标记；ESM、导入和模块解析会在第 14 课系统讲解。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>任务</h3>
+            <p>在 <code>src/lesson-01.ts</code> 中导出并实现 <code>formatWelcome(name: string): string</code>。对于输入 <code>"Ada"</code>，返回精确字符串 <code>"Welcome, Ada."</code>。</p>
+            <ol>
+              <li>先运行 <code>pnpm lesson 01</code> 观察当前状态。缺少文件或 Lab 时按下面的步骤补齐；若已有实现并通过，也请亲自解释和改写一次。</li>
+              <li>创建文件并实现函数，不修改测试，不打印输出。</li>
+              <li>再次运行当前课命令。</li>
+              <li>指出参数类型、返回类型和模板字符串分别写在哪里。</li>
+            </ol>
+          </div>
+          <p>公开行为只承诺返回值。把 <code>console.log</code> 塞进函数虽然肉眼可见，却改变了函数的副作用契约，因此不需要。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先确定字符串结构</summary>
+            <div class="details-body"><p>结果由固定前缀、传入的名字和句点构成。先在纸上写出输入 <code>Ada</code> 到输出的逐字符变化。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 选择表达式</summary>
+            <div class="details-body"><p>模板字符串使用反引号，并通过 <code>${name}</code> 插入变量。函数只需要一个 <code>return</code> 表达式。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 检查边界</summary>
+            <div class="details-body"><p>不要修改参数，不要打印，不要添加额外空格。类型签名已经限制调用者必须传入字符串。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>哪一个函数声明明确要求输入与输出都是 <code>string</code>？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>function greet(name: string): string</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>function greet(name: number): number</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>/** @lab */
+export function formatWelcome(name: string): string {
+  return `Welcome, ${name}.`;
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1 行</dt><dd><code>export</code> 让测试可以导入函数；参数名是 <code>name</code>，参数与返回值都标注为 <code>string</code>。</dd>
+                <dt>第 2 行</dt><dd><code>return</code> 返回结果；模板字符串把固定文本、<code>name</code> 和末尾句点组合起来。</dd>
+                <dt>第 3 行</dt><dd>右花括号结束函数体。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 01</code></pre>
+          <p>只验收本课 Lab 导出的 <code>formatWelcome</code>：它需要对多个名字返回精确字符串，参数与返回类型保持为 <code>string</code>。同文件的其他练习不会被断言，但文件必须是可加载的 TypeScript。</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="../index.html">← 返回课程索引</a>
+          <a href="0002-values-operators-truthiness.html">下一课：值与运算符 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 01 · Syntax first · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

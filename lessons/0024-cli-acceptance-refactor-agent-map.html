@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="TypeScript 第 24 课：完整 CLI 验收、重构与 Agent 能力地图。"><title>Lesson 24 · 完整 CLI 验收、重构与 Agent 能力地图</title><link rel="stylesheet" href="../assets/course.css?v=4"></head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a><header class="topbar"><a class="brand" href="../index.html">Typescript-Startup</a><nav aria-label="课程导航"><a href="../index.html#route">课程目录</a><a href="../reference/async-and-node-cli.html">本课速查</a></nav></header>
+    <main class="lesson-layout">
+      <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 24 / 24</p><p>建议 120 分钟</p><p>用证据结束课程</p><p>Lab 24</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
+      <article id="lesson" class="lesson-paper">
+        <header class="lesson-title"><p class="eyebrow">ACCEPTANCE · ORCHESTRATION · REFACTOR · AGENT MAP</p><h1>最后一课不增加框架：把已经学会的边界连接并验证</h1><p class="lead">完整 CLI 由解析、命令编排、持久化、输出和进程入口组成。最终重构只删除重复、缩短依赖链并保留行为；Agent 能力建立在这些可测试函数之上，而不是绕过类型、验证和用户确认。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-24.ts</code>。复盘案例保持顶层零参数导出；依赖注入的命令编排 Lab 用 <code>/** @lab */</code> 标记。</div></header>
+
+        <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>executeNoteCommand(command, dependencies)</code>，为 add/list/help 返回结构化 CliResult，捕获依赖失败并保持 stdout、stderr 与退出码一致。</p><ul><li>把 17–23 课组成一条端到端验收链。</li><li>在纯命令编排和真实 process 之间保留边界。</li><li>只在测试保护下重构。</li><li>用能力、输入、工具、副作用与确认点描述 Agent，而非“自动做一切”。</li></ul></section>
+
+        <section id="recall" class="lesson-section"><h2>前置回忆：每层只翻译一次</h2><pre><code>export function demoCliLayers(): string[] {
+  return ["argv", "command", "dependencies", "CliResult", "process"];
+}</code></pre><p>argv 只在入口解析，文件只在 repository 访问，输出只在入口写入。中间 execute 函数接收已解析命令与最小依赖。</p></section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：从验收证据反推边界</h2>
+          <h3>1. 完整检查链由快到慢</h3><pre><code>export function demoAcceptancePipeline(): string[] {
+  return ["validate", "typecheck", "test", "build", "notes --help"];
+}</code></pre><p>HTML 与链接先失败，随后类型、行为、产物和真实入口。越早的失败越便宜；后一步只在前一步可靠时有意义。</p>
+
+          <h3>2. 编排依赖能力，不依赖全局进程</h3><pre><code>export function demoInjectedCapability(): string[] {
+  const dependencies = {
+    add: "(title) =&gt; Promise&lt;Note&gt;",
+    list: "() =&gt; Promise&lt;readonly Note[]&gt;",
+  };
+  return Object.keys(dependencies);
+}</code></pre><p>命令只知道 add/list 能力，不知道 JSON 文件路径、网络或数据库。测试用小 fake，生产入口连接真实 repository。</p>
+
+          <h3>3. 结构化结果最后才写入进程</h3><pre><code>export function demoCliResult() {
+  return {
+    success: { exitCode: 0, stdout: "n1\tDraft\n", stderr: "" },
+    empty: { exitCode: 0, stdout: "", stderr: "" },
+    failure: { exitCode: 1, stdout: "", stderr: "Error: offline\n" },
+  };
+}</code></pre>
+          <p>execute 返回数据，入口再 write 并设置 exitCode。这样成功、空列表和依赖失败都能断言，不需要拦截全局 console。</p>
+          <h4>空列表也是成功</h4><p>没有数据不是运行失败；脚本可依赖退出码 0。</p>
+          <h4>失败原因进入 stderr</h4><p>业务结果和诊断不混流，错误文本统一由编排边界规范化。</p>
+
+          <h3>4. 重构必须保持可观察行为</h3><pre><code>export function demoSafeRefactorOrder(): string[] {
+  return ["green test", "small change", "green test", "full check"];
+}</code></pre><p>先确认绿色基线，再删除重复或改名。一次改一个边界；若测试同时重写，就失去对行为是否保持的证据。</p>
+
+          <h3>5. Agent 能力地图从确定性工具开始</h3><pre><code>export function demoAgentCapabilityMap(): object {
+  return {
+    read: ["list notes", "load one note"],
+    propose: ["summarize", "suggest tags"],
+    writeWithApproval: ["add note", "replace note"],
+  };
+}</code></pre><p>读取、建议、写入是不同权限。模型输出仍视作 unknown，经校验后成为命令；有副作用的动作在明确边界执行并留下结果。</p>
+          <div class="callout"><strong>完成定义：</strong>行为可从公开命令观察，错误不毁数据，测试可复现，构建产物可运行，文档说明的命令与真实 package scripts 一致。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section"><h2>Java / Python 对照</h2><div class="table-scroll"><table class="comparison-table"><thead><tr><th>层</th><th>Java</th><th>Python</th><th>TypeScript / Node</th></tr></thead><tbody><tr><td>入口</td><td>main</td><td>if __name__</td><td>cli.ts / bin</td></tr><tr><td>命令模型</td><td>sealed hierarchy</td><td>dataclass union</td><td>discriminated union</td></tr><tr><td>能力注入</td><td>interface</td><td>protocol/callable</td><td>structural function object</td></tr><tr><td>结果</td><td>exit + streams</td><td>exit + streams</td><td>CliResult → process</td></tr></tbody></table></div></section>
+
+        <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
+
+          <div class="example"><h3>示例 A：Agent 不直接拿文件写权限</h3><pre><code>export function demoAgentWriteBoundary(): string {
+  return "model output -&gt; validation -&gt; approved command -&gt; repository";
+}</code></pre><p>确定性边界让未来 Agent 功能复用同一测试与持久化契约。</p></div>
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 24</code></pre><p>复盘案例按源码顺序运行；带 command 与 dependencies 的 Lab 用 <code>/** @lab */</code> 排除。</p></div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>入口同时解析、读写、格式化。</strong>任何测试都必须启动完整进程。</li><li><strong>空列表返回失败。</strong>把正常状态误报成异常。</li><li><strong>catch 后只返回字符串。</strong>调用者失去退出码与输出流信息。</li><li><strong>为了“架构”新增多层接口。</strong>两个函数依赖已足够表达边界。</li><li><strong>重构时改变测试期望。</strong>无法证明行为保持。</li><li><strong>让 Agent 生成任意 shell。</strong>应提供窄、验证过、可审计的能力。</li><li><strong>只说本地绿色就是发布成功。</strong>安装、权限和真实环境仍需独立验收。</li></ul></section>
+
+        <section id="contract" class="lesson-section"><h2>Learning Contract</h2><p>完成课程时，你应能解释 TypeScript、JavaScript 与 Node 的边界；写出严格类型、运行时校验、异步失败与可取消操作；构建可安装 CLI；用测试、临时目录和端到端命令证明行为；为未来 Agent 设计窄而可确认的工具能力。</p></section>
+
+        <section id="sources" class="lesson-section"><h2>官方资料</h2><ul><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/process.html">Node.js Process</a>：argv、标准流与退出状态。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/test.html">Node.js Test runner</a>：最终行为验收。</li><li><a href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html#exhaustiveness-checking">TypeScript Exhaustiveness checking</a>：never 与命令穷尽。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/packages.html">Node.js Packages</a>：最终模块与包边界。</li></ul></section>
+
+        <section id="lab" class="lesson-section lab-section"><h2>Lab 24：编排完整 NoteCommand</h2><p><strong>由你创建或修改：</strong>创建 <code>src/lesson-24.ts</code>，保存案例、最终类型与 Lab。</p><p><strong>不要修改：</strong><code>tests/lessons.test.ts</code>、runner 或真实进程状态。</p>
+          <h3>你要交付什么</h3><pre><code>type FinalNoteCommand =
+  | { readonly kind: "add"; readonly title: string }
+  | { readonly kind: "list"; readonly json: boolean }
+  | { readonly kind: "help" };
+
+type CliDependencies = {
+  readonly add: (title: string) =&gt; Promise&lt;CliNote&gt;;
+  readonly list: () =&gt; Promise&lt;readonly CliNote[]&gt;;
+};
+
+executeNoteCommand(
+  command: FinalNoteCommand,
+  dependencies: CliDependencies,
+): Promise&lt;CliResult&gt;</code></pre>
+          <h3>运行规则</h3><ul><li>help 不调用依赖，stdout 返回三条命令用法并以换行结束。</li><li>add 调用一次 add，成功输出 <code>Added id: title\n</code>。</li><li>list --json 输出两空格 JSON 与换行；普通 list 每行 <code>id\ttitle</code>，空列表输出空字符串。</li><li>任意依赖失败返回 exitCode 1、空 stdout 与规范化 <code>Error: message\n</code> stderr。</li><li>成功 exitCode 为 0 且 stderr 为空。</li></ul>
+          <h3>实现限制</h3><p>只做命令编排；不要读取 process、文件或 argv，不要引入 class、框架、日志器或 Agent SDK。用 never 保持命令穷尽；Lab 前保留 <code>/** @lab */</code>。</p>
+        </section>
+
+        <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 外层结构</summary><p>一个 try/catch 包住按 kind 分支。</p></details><details><summary>提示 2 · list 文本</summary><p>map 后 join("\n")，非空时再加末尾换行。</p></details><details><summary>提示 3 · 失败</summary><p>复用第 16 课的 <code>error instanceof Error ? error.message : String(error)</code>。</p></details></section>
+
+        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="1"><fieldset><legend>最终 CLI 编排怎样保持可测试？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>命令编排直接读写全局进程，捕获后固定退出码</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>命令编排依赖接口边界，返回明确退出码和文本</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+
+        <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>export type CliNote = { readonly id: string; readonly title: string };
+export type FinalNoteCommand =
+  | { readonly kind: "add"; readonly title: string }
+  | { readonly kind: "list"; readonly json: boolean }
+  | { readonly kind: "help" };
+export type CliDependencies = {
+  readonly add: (title: string) =&gt; Promise&lt;CliNote&gt;;
+  readonly list: () =&gt; Promise&lt;readonly CliNote[]&gt;;
+};
+export type CliResult = {
+  readonly exitCode: 0 | 1;
+  readonly stdout: string;
+  readonly stderr: string;
+};
+
+/** @lab */
+export async function executeNoteCommand(
+  command: FinalNoteCommand,
+  dependencies: CliDependencies,
+): Promise&lt;CliResult&gt; {
+  try {
+    if (command.kind === "help") {
+      return { exitCode: 0, stdout: "notes add &lt;title&gt;\nnotes list [--json]\nnotes help\n", stderr: "" };
+    }
+    if (command.kind === "add") {
+      const note = await dependencies.add(command.title);
+      return { exitCode: 0, stdout: `Added ${note.id}: ${note.title}\n`, stderr: "" };
+    }
+    if (command.kind === "list") {
+      const notes = await dependencies.list();
+      const stdout = command.json
+        ? `${JSON.stringify(notes, null, 2)}\n`
+        : notes.length
+          ? `${notes.map((note) =&gt; `${note.id}\t${note.title}`).join("\n")}\n`
+          : "";
+      return { exitCode: 0, stdout, stderr: "" };
+    }
+    const unexpected: never = command;
+    return unexpected;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { exitCode: 1, stdout: "", stderr: `Error: ${message}\n` };
+  }
+}</code></pre><dl class="line-notes"><dt>类型</dt><dd>命令、能力与进程结果都成为显式契约。</dd><dt>help/add/list</dt><dd>每个分支只调用必要能力并形成稳定文本。</dd><dt>never</dt><dd>新增 kind 时编译器要求更新编排。</dd><dt>catch</dt><dd>依赖失败统一规范化，不触碰全局进程。</dd></dl></div></details></section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收与最终集成</h2>
+          <h3>先验收单课函数</h3>
+          <pre><code>pnpm lesson 24
+pnpm examples 24
+pnpm test</code></pre>
+          <p>本课验收覆盖 help 零调用、add 参数与输出、普通/JSON/空 list、Error 与非 Error 失败、静态穷尽和只读契约。pnpm test 验收全部单课 Lab 与课程工具；尚未完成的前课会失败。</p>
+          <h3>再连接真实 CLI 入口</h3>
+          <p>单课 Lab 通过不等于完整 CLI 已经组装好。各课围绕同一笔记场景简化模型，仓库没有提供成品 <code>src/cli.ts</code> 或存储适配器，需要你在单课练习之外完成最后的连接：</p>
+          <ol>
+            <li>创建 <code>src/cli.ts</code>，连接第 19 课的参数解析与本课的命令编排。入口将独立的 <code>--help</code> 转成 <code>help</code> 命令，以兼容项目的 smoke test；不改变 Lab 19 的既定协议。</li>
+            <li>为 add/list 提供真实文件存储能力，接合文件读取、版本与字段校验、唯一 id 和第 22 课的写入函数。各课的简化类型需要显式适配，不能假定直接拼接就符合最终文件格式。</li>
+            <li>仅在入口写入 stdout/stderr、设置 exitCode，并处理参数解析失败。要作为可安装命令发布时，再按第 23 课接入 bin 与 shebang。</li>
+          </ol>
+          <pre><code>pnpm check</code></pre>
+          <p>完整检查最后执行 <code>node dist/cli.js --help</code>；缺少入口时失败是尚未完成集成，不是 Lab 24 的函数实现错误。help 通过仍不是全部端到端验收，还应在临时数据目录实际验证 add/list、重启后的数据保留和错误输出。</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航"><a href="0023-bin-shebang-build-cross-platform.html">← 上一课：可安装 CLI</a><a href="../index.html#route">返回完整课程路线 →</a></nav>
+      </article>
+    </main><footer class="foot-line"><p>Typescript-Startup · Lesson 24 · Complete CLI · Print-friendly HTML</p></footer><script src="../assets/course.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 08 课：null、undefined、unknown、any、空值运算符与信任边界。">
+    <title>第 08 课 · 空值与未知边界</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/type-system.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 08 / 24</p>
+          <p class="lesson-meta">建议 90 分钟<br>空值与信任边界<br>Lab 08</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 08</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>空值必须进入类型，外部值必须先证明</h1>
+          <p class="lesson-lead"><code>null</code> 与 <code>undefined</code> 是真实运行时值；<code>unknown</code> 则把“尚未知道”保留到边界检查之后。你将区分缺失、空值与未知输入，用 JavaScript 检查换取 TypeScript 中更精确的类型。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-08.ts</code>，按顺序保存导出的无参案例；带参数 helper 放在案例内部；Lab 前添加 <code>/** @lab */</code>，危险案例保持非导出并添加 <code>/** @example-skip */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>readNoteTitle(value: unknown): string | undefined</code>，从未知对象中安全读取、清理并返回可选标题。</p>
+          <ul>
+            <li>说明 <code>null</code> 与 <code>undefined</code> 在运行时和类型中的差异。</li>
+            <li>在 <code>strictNullChecks</code> 下显式处理空值联合。</li>
+            <li>区分 <code>?.</code>、<code>??</code> 与基于 truthiness 的 <code>||</code>。</li>
+            <li>把不可信输入标成 <code>unknown</code>，检查后再读取属性。</li>
+            <li>解释 <code>any</code> 与非空断言为什么不会生成运行时保护。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 55 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：联合列出候选，检查排除不可能</h2>
+          <p>第 07 课已经用 <code>string | number</code> 表示有限候选，并通过 <code>typeof</code> 收窄。空值也使用同一个模型：</p>
+          <pre><code>export function demoNullableTitle(): string {
+  function formatNullableTitle(title: string | null): string {
+    if (title === null) {
+      return "Untitled";
+    }
+
+    return title.trim();
+  }
+
+  return formatNullableTitle(null);
+}</code></pre>
+          <p>顶层案例函数无参数，固定输入写在函数内部，课程脚本可以直接执行它。内部 helper 的入口处 title 有两个候选；严格相等检查在运行时确认 <code>null</code>，返回后剩余路径只有 string。TypeScript 没有替你删除空值；它验证了你写出的 JavaScript 分支。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：缺失、未知与放弃检查不是一回事</h2>
+
+          <h3>1. <code>null</code> 与 <code>undefined</code> 是两个不同的原始值</h3>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>值</th><th>常见含义</th><th>常见来源</th><th>运行时观察</th></tr></thead>
+              <tbody>
+                <tr><td><code>undefined</code></td><td>未提供或未找到</td><td>缺失属性、越界索引、无返回值</td><td><code>typeof value === "undefined"</code></td></tr>
+                <tr><td><code>null</code></td><td>调用方显式给出的空值</td><td>协议字段、API 结果、手动赋值</td><td><code>value === null</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><code>typeof null</code> 的历史结果是 <code>"object"</code>，所以检查未知对象时必须先排除 null。不要因为二者都表示“没有可用内容”就把运行时值说成相同。</p>
+
+          <h3>2. 严格空值检查让缺失进入联合</h3>
+          <pre><code>type NotePreview = {
+  body?: string;
+};
+
+export function demoOptionalBody(): string {
+  function describeOptionalBody(note: NotePreview): string {
+    const body = note.body;
+
+    if (body === undefined) {
+      return "No body";
+    }
+
+    return `Body:${body}`;
+  }
+
+  return describeOptionalBody({});
+}</code></pre>
+          <p>项目启用了 <code>strict</code>，其中包含 <code>strictNullChecks</code>。读取可选属性时，body 的类型是 <code>string | undefined</code>；没有检查就调用字符串方法会报错。<code>body?: string</code> 描述属性可以不存在，不等于 <code>body: string | undefined</code> 描述属性一定存在但值可为 undefined。</p>
+
+          <h3>3. <code>exactOptionalPropertyTypes</code> 保留“没有属性”</h3>
+          <pre><code>const withoutBody: NotePreview = {};
+// const explicitUndefined: NotePreview = { body: undefined };
+// 当前项目会拒绝上一行：可选属性没有声明显式 undefined。</code></pre>
+          <p>JavaScript 中 <code>"body" in withoutBody</code> 是 false；而 <code>{ body: undefined }</code> 的检查结果是 true。项目启用 <code>exactOptionalPropertyTypes</code>，因此类型也保留这个属性存在性的差异。</p>
+
+          <h3>4. 索引访问也可能得到 <code>undefined</code></h3>
+          <pre><code>export function demoFirstTitle(): string | undefined {
+  function readFirstTitle(titles: string[]): string | undefined {
+    return titles[0];
+  }
+
+  return readFirstTitle([]);
+}</code></pre>
+          <p>数组标注 string[] 约束已存在的元素，却不能证明索引 0 一定存在。项目启用 <code>noUncheckedIndexedAccess</code>，因此读取结果是 <code>string | undefined</code>。先检查长度也未必能被所有变更路径保持；直接处理读取结果最清楚。</p>
+
+          <h3>5. <code>??</code> 只在 nullish 时使用默认值</h3>
+          <pre><code>export function demoDefaults() {
+  function resolvePageSize(size: number | null | undefined): number {
+    return size ?? 20;
+  }
+
+  const emptyTitle = "";
+  return {
+    zero: resolvePageSize(0),
+    nullValue: resolvePageSize(null),
+    missing: resolvePageSize(undefined),
+    emptyTitle: emptyTitle ?? "Untitled",
+  };
+}</code></pre>
+          <p><code>size ?? 20</code> 只在 size 是 null 或 undefined 时返回 20。若 size 是 0，它仍返回 0。<code>size || 20</code> 会把 0、空字符串、false、NaN 也当成缺失；只有这些 falsy 值都确实无效时才应使用 <code>||</code>。</p>
+          <p>对照四项结果：0、20、20、空字符串。只有 null 和 undefined 会触发右侧默认值。</p>
+          <h4>空字符串不是 nullish</h4>
+
+          <p><code>emptyTitle</code> 已有空字符串值，因此不会采用 "Untitled"。若产品规则认为空白标题无效，应先明确调用 <code>trim()</code> 并检查结果，而不是把 <code>??</code> 换成含义更宽的 <code>||</code>。</p>
+
+          <h3>6. <code>?.</code> 遇到 nullish 就停止当前链</h3>
+          <pre><code>export function demoOptionalBodyLength(): number {
+  function getOptionalBodyLength(note: NotePreview | null): number {
+    return note?.body?.length ?? 0;
+  }
+
+  return getOptionalBodyLength({ body: "Draft" });
+}</code></pre>
+          <p>若 note 是 null，第一次可选链返回 undefined；若 body 缺失，第二次可选链返回 undefined；最后 <code>?? 0</code> 给出数字。可选链不会验证对象来自可信来源，也不会吞掉后续方法内部抛出的错误。</p>
+
+          <h3>7. <code>unknown</code> 接受任何值，但禁止未经证明地使用</h3>
+          <pre><code>export function demoUnknownValue(): string {
+  function formatUnknownValue(value: unknown): string {
+    if (typeof value === "string") {
+      return value.trim();
+    }
+
+    if (typeof value === "number") {
+      return value.toFixed(0);
+    }
+
+    return "Unsupported";
+  }
+
+  return formatUnknownValue(7);
+}</code></pre>
+          <p>任何值都能赋给 unknown，但 unknown 不能直接赋给 string，也不能直接调用 <code>trim()</code>。每个运行时检查都提供新证据。unknown 适合文件内容、网络响应、用户输入和动态库返回值进入已建模代码的那一刻。</p>
+
+          <h3>8. <code>any</code> 不是“更宽的 unknown”，而是关闭检查</h3>
+          <pre><code>/** @example-skip */
+function demoUnsafeTitleLength(): number {
+  const value: any = { title: "Draft" };
+  return value.title.trim().length;
+}</code></pre>
+          <p>这段代码对数字、null 或缺少 title 的对象都不会产生类型错误，却可能在运行时崩溃。any 还会沿属性读取继续传播。它适合受控迁移中的临时逃生口，不适合作为外部输入的默认类型；边界优先使用 unknown。</p>
+
+          <h3>9. 信任边界必须把静态声明接到运行时事实</h3>
+          <pre><code>export function demoRawTitle(): string | undefined {
+  function readRawTitle(value: unknown): string | undefined {
+    if (value === null || typeof value !== "object" || !("title" in value)) {
+      return undefined;
+    }
+
+    if (typeof value.title !== "string") {
+      return undefined;
+    }
+
+    return value.title;
+  }
+
+  return readRawTitle({ title: "Release" });
+}</code></pre>
+          <p>检查顺序有运行时原因：先排除 null 和非对象，之后 <code>in</code> 才安全；确认属性存在后，属性值仍是 unknown；最后 <code>typeof</code> 才证明它是 string。整个过程没有 <code>as</code>，每一步都可在 JavaScript 中观察。</p>
+
+          <div class="callout"><strong>边界原则：</strong>类型标注不能净化数据。先把外部值收进 unknown，再用实际检查转换为内部类型；第 21 课会把这个单字段模式扩展成完整 API 数据校验。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>显式空值</td><td>null；Optional 用于返回契约</td><td>None</td><td>null 与 undefined 是不同运行时值</td></tr>
+                <tr><td>可空类型</td><td>注解或 Optional 取决于工具链</td><td>str | None</td><td><code>string | null</code> 或 <code>string | undefined</code></td></tr>
+                <tr><td>未知输入</td><td>Object 后做 instanceof / pattern matching</td><td>object / Any 后做 isinstance</td><td>unknown 后做 typeof、in 等检查</td></tr>
+                <tr><td>绕过检查</td><td>原始类型、强制转换</td><td>Any、忽略类型检查</td><td>any、断言；都不生成验证</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Java 的 null 通常只有一个空值，而 JavaScript 生态同时保留 null 与 undefined。Python 的 Any 与 TypeScript any 都会削弱静态检查；TypeScript unknown 更像“允许传入任何值，但使用前必须证明”的安全入口。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：可选参数在函数体内包含 undefined</h3>
+            <pre><code>export function demoSearchLimit(): string {
+  function formatSearchLimit(limit?: number): string {
+    const resolvedLimit = limit ?? 20;
+    return `Limit:${resolvedLimit}`;
+  }
+
+  return formatSearchLimit();
+}</code></pre>
+            <p>调用方可以省略参数；函数体内 limit 是 <code>number | undefined</code>。默认值表达式只负责选择值，不会改变原变量的运行时内容。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：把 JSON.parse 的结果立即收进 unknown</h3>
+            <pre><code>export function demoBoundaryJson(): unknown {
+  function parseBoundaryJson(text: string): unknown {
+    const value: unknown = JSON.parse(text);
+    return value;
+  }
+
+  return parseBoundaryJson('{"title":"Draft"}');
+}</code></pre>
+            <p>标准库的 <code>JSON.parse</code> 返回 any；显式接到 unknown 后，调用方不能凭空读取属性。这里只建立边界，不在本课实现递归结构校验、错误路径或版本迁移。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：非空断言只消除诊断</h3>
+            <pre><code>/** @example-skip */
+function demoUnsafeFirstTitle(): string {
+  function unsafeFirstTitle(titles: string[]): string {
+    return titles[0]!.toUpperCase();
+  }
+
+  return unsafeFirstTitle([]);
+}</code></pre>
+            <p><code>!</code> 告诉编译器“这里一定不是 null 或 undefined”，输出 JavaScript 时会被删除。空数组仍会在运行时读取 undefined 并调用方法。只有不变量已由别处可靠保证且无法被类型表达时才使用它。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 08</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>用 truthiness 代替空值检查。</strong> 0、空字符串和 false 可能是合法业务值。</li>
+            <li><strong>认为可选属性等于显式 undefined。</strong> 当前配置会保留属性缺失与属性存在的差异。</li>
+            <li><strong>把 optional chaining 当成数据校验。</strong> 它只在已知联合中短路 nullish，不证明陌生对象的结构。</li>
+            <li><strong>给外部数据直接标注内部接口。</strong> 类型标注在运行时消失，错误对象不会自动被拒绝。</li>
+            <li><strong>用 any 消除边界报错。</strong> 诊断消失的同时，后续属性链也失去保护。</li>
+            <li><strong>用非空断言代替检查。</strong> <code>!</code> 不产生分支、不抛自定义错误，也不改变运行时值。</li>
+            <li><strong>把 never 与 unknown 混为一谈。</strong> unknown 可能是任何值；never 表示没有任何可能值。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入函数类型与泛型前，你应当能够：</p>
+          <ul>
+            <li>分别说明 null、undefined 在运行时的来源与检查方法。</li>
+            <li>从可选属性、可选参数和索引访问预测 <code>undefined</code> 联合。</li>
+            <li>根据 0、空字符串、false、null、undefined 预测 <code>??</code> 与 <code>||</code> 的不同结果。</li>
+            <li>使用 optional chaining 读取已建模的可空路径，并处理最终 undefined。</li>
+            <li>把不可信输入标成 unknown，按安全顺序检查 null、object、属性存在性与属性值类型。</li>
+            <li>解释 any、类型断言与非空断言为什么不会提供运行时证据。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#any">TypeScript Handbook: any</a>：any 如何关闭后续类型检查。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#null-and-undefined">TypeScript Handbook: null and undefined</a>：严格空值检查与非空断言。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/type-compatibility#any-unknown-object-void-undefined-null-and-never-assignability">TypeScript Handbook: unknown assignability</a>：unknown、any、never 与空值的赋值关系。</li>
+            <li><a href="https://www.typescriptlang.org/tsconfig/exactOptionalPropertyTypes.html">TSConfig: exactOptionalPropertyTypes</a>：缺失属性与显式 undefined 的区别。</li>
+            <li><a href="https://www.typescriptlang.org/tsconfig/noUncheckedIndexedAccess.html">TSConfig: noUncheckedIndexedAccess</a>：未声明索引访问为何加入 undefined。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 08：从 unknown 边界读取可选笔记标题</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-08.ts</code>，把本课示例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>导出 <code>readNoteTitle(value: unknown): string | undefined</code>。它只接受一个未知值，不导出额外类型或辅助函数。</p>
+
+            <h3>边界规则</h3>
+            <ol>
+              <li>只有非 null 的 object 才能继续检查；数组也属于 object，但没有合格 title 时会自然失败。</li>
+              <li>对象必须存在 <code>title</code> 属性，且属性值必须是 string。</li>
+              <li>对字符串调用 <code>trim()</code>；清理后非空就返回清理结果。</li>
+              <li>其他所有输入都返回 undefined，包括 null、undefined、原始字符串、缺属性对象、非字符串 title 与纯空白 title。</li>
+            </ol>
+
+            <h3>完成条件</h3>
+            <ul>
+              <li>参数保持 unknown，不能改成 any。</li>
+              <li>属性读取前完成 null、object 与属性存在性检查。</li>
+              <li>不使用 <code>as</code> 或非空断言。</li>
+              <li>返回类型精确为 <code>string | undefined</code>，调用方必须处理缺失。</li>
+            </ul>
+          </div>
+          <p>本课只读取一个字段并折叠失败为 undefined，不解析完整 Note、不收集错误路径、不处理版本。结构化运行时校验留到第 21 课。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先证明可以使用 in</summary>
+            <div class="details-body"><p>把 null、<code>typeof value !== "object"</code> 和 <code>!("title" in value)</code> 放进一个提前返回条件。短路求值保证只有对象才执行 in。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 属性存在后仍是 unknown</summary>
+            <div class="details-body"><p>用 <code>typeof value.title !== "string"</code> 再次提前返回。通过该分支后，value.title 才能安全调用 trim。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 清理后处理空字符串</summary>
+            <div class="details-body"><p>保存 <code>const title = value.title.trim()</code>；如果 title 等于空字符串就返回 undefined，否则返回 title。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>为什么接收 unknown 的值后必须先收窄？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>因为 unknown 在运行时会自动转换为安全字符串</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>因为 unknown 在收窄前不能直接使用字符串能力</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>/** @lab */
+export function readNoteTitle(value: unknown): string | undefined {
+  if (value === null || typeof value !== "object" || !("title" in value)) {
+    return undefined;
+  }
+
+  if (typeof value.title !== "string") {
+    return undefined;
+  }
+
+  const title = value.title.trim();
+  return title === "" ? undefined : title;
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1 行</dt><dd>unknown 接收任意边界值，但返回联合把缺失继续暴露给调用方。</dd>
+                <dt>第 2–4 行</dt><dd>短路条件先排除 null 与非对象，再安全执行属性存在性检查。</dd>
+                <dt>第 6–8 行</dt><dd>title 属性存在仍不代表值是字符串；typeof 提供调用 trim 所需的运行时证据。</dd>
+                <dt>第 10–11 行</dt><dd>清理字符串并把纯空白标题归一为 undefined；合法标题返回清理结果。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 08</code></pre>
+          <p>只验收 <code>readNoteTitle</code>：覆盖合法标题、空白、缺失属性、错误属性类型、null、undefined 与错误顶层类型，并确认参数不是 any、返回值仍包含 undefined。通过后请说明：为什么检查顺序不能从 <code>"title" in value</code> 开始？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0007-unions-narrowing-and-never.html">← 上一课：联合类型与收窄</a>
+          <a href="0009-function-types-generics-overloads.html">下一课：函数类型与泛型 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 08 · Nullish and unknown boundaries · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

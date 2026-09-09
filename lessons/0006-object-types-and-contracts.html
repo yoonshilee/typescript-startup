@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 06 课：对象类型、type、interface、可选属性、readonly 与 satisfies。">
+    <title>第 06 课 · 对象类型与契约</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/type-system.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 06 / 24</p>
+          <p class="lesson-meta">建议 90 分钟<br>对象形状与契约<br>Lab 06</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 06</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>对象契约描述需要的形状，不要求共同的类身份</h1>
+          <p class="lesson-lead">TypeScript 主要比较对象拥有哪些成员，而不是它由哪个类创建。你将从内联对象类型开始，用 <code>type</code> 与 <code>interface</code> 命名形状，并准确处理可选、只读与 <code>satisfies</code> 的静态边界。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-06.ts</code>，按顺序保存导出的无参案例；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>，必要类型可继续导出。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>声明 <code>DraftNote</code> 接口并实现 <code>normalizeDraft(note)</code>，规范化标题、保留可选正文，同时返回新对象。</p>
+          <ul>
+            <li>把对象类型逐项读成属性名、是否必需、能否写入和值类型。</li>
+            <li>在简单对象形状中正确选择并书写 <code>type</code> 或 <code>interface</code>。</li>
+            <li>用结构兼容解释“没有 implements 也能传入”的原因。</li>
+            <li>区分可选属性、只读属性、<code>as const</code> 与运行时冻结。</li>
+            <li>用 <code>satisfies</code> 检查对象形状而不替换表达式自身的推断结果。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 55 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：对象已有运行时形状，类型为它建立静态契约</h2>
+          <p>第 04 课创建过普通 JavaScript 对象，第 05 课观察过对象属性的推断。即使不写接口，运行时对象也已经有属性：</p>
+          <pre><code>export function createInferredNote() {
+  return {
+    id: "n1",
+    title: "TypeScript",
+  };
+}</code></pre>
+          <p>TypeScript 会推断返回值包含 <code>id: string</code> 与 <code>title: string</code>。本课新增的对象类型不是创建另一份对象，而是给多个参数、变量和返回值复用同一个形状契约。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：从匿名形状到可复用对象契约</h2>
+
+          <h3>1. 内联对象类型逐项检查属性</h3>
+          <p>对象类型写在参数位置时，花括号内不是运行时对象，而是静态成员清单：</p>
+          <pre><code>export function demoInlineNote(): string {
+  function formatInlineNote(note: { id: string; title: string }): string {
+    return `${note.id}:${note.title}`;
+  }
+
+  return formatInlineNote({ id: "n1", title: "TypeScript" });
+}</code></pre>
+          <ol>
+            <li><code>note</code> 是参数名。</li>
+            <li><code>{ id: string; title: string }</code> 是参数必须满足的对象形状。</li>
+            <li><code>id</code> 与 <code>title</code> 都是必需属性，值都必须是字符串。</li>
+            <li>分号只分隔类型成员；运行时对象仍使用逗号分隔属性值。</li>
+          </ol>
+          <p>少一个必需属性或属性值类型不匹配都会报错。这个写法适合只出现一次的短形状；重复时应命名，避免多个位置慢慢漂移。</p>
+
+          <h3>2. <code>type</code> 给类型表达式起名字</h3>
+          <pre><code>type NoteHeading = {
+  title: string;
+  body?: string;
+};
+
+export function demoHeading(): string[] {
+  function formatHeading(note: NoteHeading): string {
+    return note.body ? `${note.title}: ${note.body}` : note.title;
+  }
+
+  const titleOnly: NoteHeading = { title: "Draft" };
+  const complete: NoteHeading = { title: "Release", body: "Ship it" };
+
+  return [formatHeading(titleOnly), formatHeading(complete)];
+}</code></pre>
+          <p><code>type NoteHeading = ...</code> 创建的是类型别名，不是变量，也不会出现在运行时。这里复用了一个对象形状；后续课程还会看到 <code>type</code> 命名其他类型表达式。</p>
+          <h4>可选属性表示“可以不存在”</h4>
+          <p><code>body?: string</code> 中的问号属于属性名。上面同一个 <code>formatHeading</code> 接收两种输入：<code>titleOnly</code> 省略 body，<code>complete</code> 提供字符串 body；结果依次是 <code>Draft</code> 和 <code>Release: Ship it</code>。</p>
+
+          <p>本项目启用了 <code>exactOptionalPropertyTypes</code>，因此“没有 <code>body</code>”与“显式写 <code>body: undefined</code>”不是同一个契约。读取可选属性时必须承认它可能不存在；完整的 <code>undefined</code> 边界会在第 08 课系统展开。</p>
+
+          <h3>3. <code>interface</code> 直接声明对象契约</h3>
+          <pre><code>interface NotePreview {
+  readonly id: string;
+  title: string;
+  body?: string;
+}
+
+export function demoPreviewTitle(): string {
+  function readPreviewTitle(note: NotePreview): string {
+    return note.title;
+  }
+
+  return readPreviewTitle({ id: "n2", title: "Preview" });
+}</code></pre>
+          <p>在这个简单对象例子里，<code>type</code> 与 <code>interface</code> 都能工作。不要把选择变成风格战争：遵循仓库现有约定即可。本课程用 <code>interface</code> 表达主要领域对象，用 <code>type</code> 表达组合与其他类型关系。</p>
+
+          <h3>4. 固定同一形状后，二者的对象检查相同</h3>
+          <pre><code>type NoteByType = {
+  title: string;
+  body?: string;
+};
+
+interface NoteByInterface {
+  title: string;
+  body?: string;
+}
+
+export function compareObjectTypes() {
+  const byType: NoteByType = { title: "Draft" };
+  const byInterface: NoteByInterface = byType;
+  const roundTrip: NoteByType = byInterface;
+
+  return {
+    sameReference: byType === byInterface,
+    titles: [byType.title, roundTrip.title],
+  };
+}</code></pre>
+          <ol>
+            <li><code>byType</code> 创建一个普通运行时对象；<code>NoteByType</code> 不会创建包装值。</li>
+            <li>赋给 <code>byInterface</code> 时，编译器只比较 title 与 body 的结构；不要求两个类型名称相同。</li>
+            <li>赋值复制的是同一个对象引用，因此 <code>sameReference</code> 是 true；两种类型声明都不会转换或克隆对象。</li>
+            <li>反向赋给 <code>roundTrip</code> 也成立，因为两个静态形状相同。输出 JavaScript 后，两个类型名称都会消失。</li>
+          </ol>
+
+          <h4><code>type</code> 可以命名对象之外的类型表达式</h4>
+          <div class="callout"><strong>下一课预览：</strong>下面的竖线表示“候选之一”，这里只用于看清 <code>type</code> 的表达范围，不进入本课 Lab；联合类型与收窄会在第 07 课展开。</div>
+          <pre><code>export function demoTypeAliasRange(): string {
+  type NoteId = string | number;
+  type NoteStatus = "draft" | "published";
+
+  const id: NoteId = "n1";
+  const status: NoteStatus = "draft";
+  return `${typeof id}:${status}`;
+}</code></pre>
+          <p><code>type</code> 可以给对象、基本类型别名、联合、元组、函数类型以及后续的映射类型和条件类型命名。<code>interface</code> 主要声明对象成员契约，不能直接替代 <code>type NoteId = string | number</code>。</p>
+
+          <h4><code>interface</code> 的同名声明会合并</h4>
+          <pre><code>interface MergedNote {
+  title: string;
+}
+
+interface MergedNote {
+  body?: string;
+}
+
+export function demoInterfaceMerging(): string {
+  const note: MergedNote = {
+    title: "Draft",
+    body: "Keep",
+  };
+  return `${note.title}:${note.body ?? "No body"}`;
+}
+
+type ClosedNote = { title: string };
+// type ClosedNote = { body?: string }; // 类型错误：名称重复。</code></pre>
+          <p>编译器把两份 <code>MergedNote</code> 合成同时拥有 title 与可选 body 的一个接口；同名 <code>type</code> 则直接报错。声明合并常用于扩充第三方库或全局契约，普通应用代码不应为了拆文件而滥用它。</p>
+
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>需求</th><th>选择</th><th>原因</th></tr></thead>
+              <tbody>
+                <tr><td>命名普通对象形状</td><td><code>type</code> 或 <code>interface</code></td><td>结构检查基本相同，遵循项目约定</td></tr>
+                <tr><td>命名联合或其他类型表达式</td><td><code>type</code></td><td><code>interface</code> 不能直接表示这些结果</td></tr>
+                <tr><td>有意允许同名声明扩充</td><td><code>interface</code></td><td>接口支持声明合并</td></tr>
+                <tr><td>本课程主要领域对象</td><td><code>interface</code></td><td>这是课程的一致性约定，不是运行时要求</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>5. <code>readonly</code> 阻止通过该类型位置重新赋值</h3>
+          <p><code>readonly id: string</code> 允许创建时提供 <code>id</code>，之后禁止通过 <code>NotePreview</code> 位置改写它。其他未标记属性仍可修改：</p>
+          <pre><code>export function demoPreviewRename(): NotePreview {
+  function renamePreview(note: NotePreview, title: string): NotePreview {
+    note.title = title;
+    // note.id = "other"; // 类型错误：id 是 readonly。
+    return note;
+  }
+
+  return renamePreview({ id: "n3", title: "Old" }, "New");
+}</code></pre>
+          <p><code>readonly</code> 不会调用 <code>Object.freeze()</code>，也不是深度不可变。它只限制当前属性写入；若属性保存数组引用，数组内容是否可改还由数组自己的类型决定。</p>
+
+          <h3>6. 结构类型只关心所需成员</h3>
+          <pre><code>interface TitledValue {
+  title: string;
+}
+
+export function demoStructuralMatch(): string {
+  function readStructuralTitle(value: TitledValue): string {
+    return value.title;
+  }
+
+  const detailedNote = {
+    id: "n1",
+    title: "Release",
+    body: "Ship it",
+  };
+
+  return readStructuralTitle(detailedNote);
+}</code></pre>
+          <p><code>detailedNote</code> 没有声明 <code>implements TitledValue</code>，但它拥有兼容的 <code>title: string</code>，所以可以传入。Java 通常要求名义上的类或接口关系；TypeScript 主要按成员结构比较。</p>
+          <div class="callout warning"><strong>新对象字面量会额外检查未知属性：</strong>直接调用 <code>readStructuralTitle({ title: "Release", typo: true })</code> 会报告多余属性，帮助发现拼写错误；先保存到变量后再传入时，结构兼容允许额外成员。不要用类型断言绕过真正的 typo。</div>
+
+          <h3>7. <code>satisfies</code> 检查形状，同时保留原表达式类型</h3>
+          <p>显式标注会把变量视为标注类型；<code>satisfies</code> 则检查右侧表达式能否赋给目标类型，但结果仍保留右侧自身的推断：</p>
+          <pre><code>interface ListSettings {
+  readonly status: string;
+  readonly limit: number;
+}
+
+export function createCheckedSettings() {
+  const settings = {
+    status: "active",
+    limit: 20,
+  } as const satisfies ListSettings;
+
+  return settings;
+}</code></pre>
+          <p><code>as const</code> 负责保留 <code>"active"</code> 与 <code>20</code> 并产生只读属性；<code>satisfies ListSettings</code> 负责检查属性名和值类型。两者都只影响静态检查，不执行运行时校验或转换。</p>
+          <p>若把 <code>status</code> 拼错为 <code>stats</code>，或把 <code>limit</code> 写成字符串，<code>satisfies</code> 会在对象创建处报错。它适合配置对象与固定映射；普通函数参数已有明确类型时，不需要每个对象都追加它。</p>
+
+          <div class="callout"><strong>本课选择：</strong>短且只用一次的形状可以内联；复用对象契约用仓库已有的 <code>interface</code> 或 <code>type</code> 风格；可选与只读必须表达真实领域语义；<code>satisfies</code> 只在需要“检查但保留推断”时使用。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>对象契约</td><td>class、record、interface</td><td>class、dataclass、TypedDict/Protocol</td><td>内联对象类型、type、interface</td></tr>
+                <tr><td>兼容依据</td><td>通常按声明与继承关系</td><td>运行时鸭子类型；静态工具另算</td><td>主要按属性结构</td></tr>
+                <tr><td>可选字段</td><td>常用 null、Optional 或重载</td><td>缺键、None 或 Optional</td><td>属性名后写 <code>?</code></td></tr>
+                <tr><td>只读字段</td><td><code>final</code>、record 组件</td><td>惯例、frozen dataclass</td><td><code>readonly</code>，仅静态且浅层</td></tr>
+                <tr><td>校验字面量</td><td>显式类型或构造器</td><td>类型检查器与运行时校验分开</td><td><code>satisfies</code> 保留表达式推断</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>最容易从 Java 带来的误解，是把 TypeScript <code>interface</code> 当成必须显式实现的名义关系。最容易从 Python 带来的误解，是把静态对象类型当成运行时 schema；TypeScript 默认不会验证 JSON 或用户输入。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：函数只要求自己真正使用的属性</h3>
+            <pre><code>type HasTitle = {
+  title: string;
+};
+
+export function demoUppercaseTitle(): string {
+  function uppercaseTitle(value: HasTitle): string {
+    return value.title.toUpperCase();
+  }
+
+  return uppercaseTitle({ title: "TypeScript" });
+}</code></pre>
+            <p>函数不读取 <code>id</code>、<code>body</code> 或状态，就不应把这些属性塞进参数契约。更小的真实要求让函数更容易复用。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：可选属性需要分支后才能按字符串使用</h3>
+            <pre><code>interface DescribedNote {
+  title: string;
+  body?: string;
+}
+
+export function demoBodySummary(): string {
+  function summarizeBody(note: DescribedNote): string {
+    if (!note.body) {
+      return "No body";
+    }
+
+    return note.body.trim();
+  }
+
+  return summarizeBody({ title: "Draft" });
+}</code></pre>
+            <p>条件为假时提前返回，后面的 <code>note.body</code> 才能安全调用字符串方法。这个分支复用了第 02–03 课的 truthiness 与控制流。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：返回新对象可以保留只读标识</h3>
+            <pre><code>interface RenameableNote {
+  readonly id: string;
+  title: string;
+}
+
+export function demoRenamedNote(): RenameableNote {
+  function renamedNote(note: RenameableNote, title: string): RenameableNote {
+    return {
+      ...note,
+      title,
+    };
+  }
+
+  return renamedNote({ id: "n2", title: "Old" }, "New");
+}</code></pre>
+            <p>没有给 <code>note.id</code> 重新赋值；对象展开读取旧 id，再创建新对象。<code>readonly</code> 限制写入位置，不妨碍复制其值。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 D：<code>satisfies</code> 在错误发生处检查配置</h3>
+            <pre><code>interface SearchDefaults {
+  readonly query: string;
+  readonly limit: number;
+}
+
+export function buildSearchDefaults() {
+  return {
+    query: "",
+    limit: 20,
+  } as const satisfies SearchDefaults;
+}</code></pre>
+            <p>若配置漏掉 <code>limit</code> 或把它写成字符串，错误会出现在返回对象旁边。结果仍保留 <code>query: ""</code> 与 <code>limit: 20</code> 的精确推断。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 06</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>把 <code>interface</code> 当成 Java 接口身份。</strong> 普通对象只要成员兼容就能满足它，无需显式 implements。</li>
+            <li><strong>认为 <code>type</code> 与 <code>interface</code> 在所有位置都能互换。</strong> 普通对象形状相近，但联合等类型表达式需要 <code>type</code>，同名声明合并则属于 <code>interface</code>。</li>
+            <li><strong>认为 <code>body?: string</code> 等于必须存在的 <code>body: undefined</code>。</strong> 本项目把缺少属性与显式 undefined 区分开。</li>
+            <li><strong>把 <code>readonly</code> 当深度冻结。</strong> 它只阻止当前属性写入，不生成运行时代码。</li>
+            <li><strong>同时维护多份相同内联对象类型。</strong> 重复形状会漂移；真正复用时命名一次。</li>
+            <li><strong>把所有对象都写成巨大领域接口。</strong> 参数只声明函数真正需要的最小成员。</li>
+            <li><strong>用 <code>satisfies</code> 代替运行时校验。</strong> 外部输入仍可能是任意错误数据。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入联合类型与收窄前，你应当能够：</p>
+          <ul>
+            <li>逐项解释内联对象类型中的属性名、必需性、只读性和值类型。</li>
+            <li>说明相同对象形状使用 <code>type</code> 或 <code>interface</code> 时为何能够相互赋值且不会转换运行时对象。</li>
+            <li>指出 <code>type</code> 可以命名联合等类型表达式，而 <code>interface</code> 可以进行声明合并。</li>
+            <li>预测缺少属性、错误属性类型、额外属性和结构兼容的检查结果。</li>
+            <li>正确处理可选属性读取，并解释本项目的 exact optional 语义。</li>
+            <li>说明 <code>readonly</code>、<code>as const</code>、<code>satisfies</code> 与运行时冻结各自负责什么。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/objects.html">TypeScript Handbook: Object Types</a>：匿名对象类型、type/interface 与属性修饰符。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/type-compatibility.html">TypeScript Handbook: Type Compatibility</a>：结构子类型与成员兼容规则。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html">TypeScript 4.9: satisfies</a>：检查目标类型并保留表达式推断。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 06：规范化草稿对象并保留契约</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-06.ts</code>，把本课示例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>在示例函数后导出 <code>DraftNote</code> 接口和 <code>normalizeDraft(note)</code> 函数。这是本课唯一需要导出的 Lab 类型与函数。相同形状也能用 <code>type</code> 表达；本 Lab 指定 <code>interface</code> 是为了练习主要领域对象的课程约定，不是因为运行时需要接口。函数返回类型让编译器推断，返回对象使用 <code>satisfies DraftNote</code> 检查。</p>
+
+            <h3><code>DraftNote</code> 的精确契约</h3>
+            <div class="table-scroll">
+              <table class="comparison-table">
+                <thead><tr><th>属性</th><th>要求</th><th>含义</th></tr></thead>
+                <tbody>
+                  <tr><td><code>id</code></td><td><code>readonly id: string</code></td><td>创建时必需，之后不能通过 DraftNote 改写</td></tr>
+                  <tr><td><code>title</code></td><td><code>title: string</code></td><td>必需，可在新对象中替换为规范化标题</td></tr>
+                  <tr><td><code>body</code></td><td><code>body?: string</code></td><td>可以不存在；存在时必须是字符串</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>一次调用的明确结果</h3>
+            <div class="table-scroll">
+              <table class="comparison-table">
+                <thead><tr><th>阶段</th><th>值</th></tr></thead>
+                <tbody>
+                  <tr><td>输入</td><td><code>{ id: "n1", title: " Draft ", body: "Keep" }</code></td></tr>
+                  <tr><td>返回</td><td><code>{ id: "n1", title: "Draft", body: "Keep" }</code></td></tr>
+                  <tr><td>调用后输入</td><td>仍为原内容，且返回值不是同一对象</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3><code>normalizeDraft</code> 必须按什么规则工作</h3>
+            <ol>
+              <li>参数标注为 <code>DraftNote</code>。</li>
+              <li>创建新对象并复制输入的全部现有属性，不修改输入对象。</li>
+              <li>只把 <code>title</code> 替换为 <code>note.title.trim()</code>；<code>id</code> 与可选 <code>body</code> 原样保留。</li>
+              <li>在返回对象后写 <code>satisfies DraftNote</code>，由编译器检查形状。</li>
+            </ol>
+
+            <h3>完成条件</h3>
+            <ul>
+              <li>带 body 和不带 body 的输入都能通过，并保持 body 的“存在/缺少”状态。</li>
+              <li>返回标题去除首尾空白；其他值不变。</li>
+              <li>返回新对象，输入对象的身份和内容保持不变。</li>
+              <li>缺少必需属性、错误属性类型和改写 readonly id 都会被类型检查拒绝。</li>
+            </ul>
+          </div>
+          <p>自动验收不要求状态联合、判别联合或收窄；它们属于第 07 课。也不要求对外部 JSON 做运行时校验，那会在第 08 与第 21 课分别建立边界模型和完整校验。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先准确声明三个属性</summary>
+            <div class="details-body"><p>用 <code>export interface DraftNote</code> 开始。<code>id</code> 前写 <code>readonly</code>，<code>body</code> 名称后写 <code>?</code>，三个值类型都是 <code>string</code>。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 复制后覆盖标题</summary>
+            <div class="details-body"><p>返回对象先写 <code>...note</code>，再写 <code>title: note.title.trim()</code>。后写的同名属性覆盖旧标题，其他现有属性保持不变。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 检查形状但保留推断</summary>
+            <div class="details-body"><p>在返回对象的右花括号后写 <code>satisfies DraftNote</code>。函数无需再写显式返回类型。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend><code>body?: string</code> 对一个对象意味着什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>属性必须存在且值可以是任意字符串</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>属性可以缺少且存在时必须是字符串</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>export interface DraftNote {
+  readonly id: string;
+  title: string;
+  body?: string;
+}
+
+/** @lab */
+export function normalizeDraft(note: DraftNote) {
+  return {
+    ...note,
+    title: note.title.trim(),
+  } satisfies DraftNote;
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1–5 行</dt><dd>导出对象契约：id 必需且只读，title 必需可写，body 可以缺少但存在时必须是字符串。</dd>
+                <dt>第 7 行</dt><dd>函数参数必须满足 DraftNote；返回类型留给编译器从返回表达式推断。</dd>
+                <dt>第 8–11 行</dt><dd>对象展开创建新对象并保留现有属性，后写的 title 用 trim 结果覆盖旧标题；satisfies 在此处检查结果满足 DraftNote。</dd>
+                <dt>第 12 行</dt><dd>函数结束。整个过程没有修改输入，也没有生成任何运行时类型对象。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 06</code></pre>
+          <p>只验收 <code>DraftNote</code> 与 <code>normalizeDraft</code>：检查带/不带 body 的运行结果、新对象身份、输入快照，以及必需、可选、只读和属性值类型。通过后请解释：为什么一个没有声明 implements DraftNote 的普通对象仍能传入函数？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0005-type-inference-and-literals.html">← 上一课：类型推断与字面量</a>
+          <a href="0007-unions-narrowing-and-never.html">下一课：联合类型与收窄 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 06 · Object contracts · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

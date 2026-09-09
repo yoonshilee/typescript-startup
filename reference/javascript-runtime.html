@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="JavaScript 运行时值、相等性、集合与函数速查。">
+    <title>Reference · JavaScript 运行时</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#reference">跳到速查正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="参考页导航">
+        <a class="context-link" href="../index.html#references">全部速查</a>
+        <a class="context-link" href="../index.html#route">24 课</a>
+      </nav>
+    </header>
+    <main id="reference" class="reference-shell">
+      <header class="reference-header">
+        <h1>JavaScript 运行时速查</h1>
+        <p>先判断代码在运行时处理什么值，再判断 TypeScript 对它施加什么静态约束。</p>
+        <p class="print-note">REFERENCE 02 / 06 · 值、控制流、对象与集合</p>
+      </header>
+
+      <section>
+        <h2>原始值与 typeof</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>值类别</th><th>例子</th><th><code>typeof</code></th><th>备注</th></tr></thead>
+            <tbody>
+              <tr><td>string</td><td><code>"note"</code></td><td><code>"string"</code></td><td>不可变</td></tr>
+              <tr><td>number</td><td><code>42</code>、<code>NaN</code></td><td><code>"number"</code></td><td>常规整数与小数同类</td></tr>
+              <tr><td>boolean</td><td><code>true</code></td><td><code>"boolean"</code></td><td>仅两个值</td></tr>
+              <tr><td>undefined</td><td><code>undefined</code></td><td><code>"undefined"</code></td><td>缺失/未赋值</td></tr>
+              <tr><td>null</td><td><code>null</code></td><td><code>"object"</code></td><td>历史遗留结果，不代表它是对象</td></tr>
+              <tr><td>bigint</td><td><code>42n</code></td><td><code>"bigint"</code></td><td>不可与 number 直接混算</td></tr>
+              <tr><td>symbol</td><td><code>Symbol("id")</code></td><td><code>"symbol"</code></td><td>每次创建唯一</td></tr>
+              <tr><td>object/function</td><td><code>{}</code>、<code>[]</code>、<code>() =&gt; 1</code></td><td><code>"object"</code> / <code>"function"</code></td><td>对象按引用身份比较</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>假值完整集合</h2>
+        <pre><code>false
+0
+-0
+0n
+""
+null
+undefined
+NaN</code></pre>
+        <p>除此之外都是真值，包括 <code>"false"</code>、<code>"0"</code>、空数组和空对象。业务谓词应写出业务含义，例如 <code>title.trim().length &gt; 0</code>。</p>
+      </section>
+
+      <section>
+        <h2>比较与默认值</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>操作</th><th>建议</th><th>例子</th></tr></thead>
+            <tbody>
+              <tr><td><code>===</code> / <code>!==</code></td><td>默认相等比较，不做宽松类型转换</td><td><code>0 !== false</code></td></tr>
+              <tr><td><code>Object.is</code></td><td>需要区分正负零或识别 NaN 自身时</td><td><code>Object.is(NaN, NaN)</code></td></tr>
+              <tr><td><code>??</code></td><td>只在 null/undefined 时使用默认值</td><td><code>limit ?? 20</code></td></tr>
+              <tr><td><code>||</code></td><td>任何假值都代表“不要左侧”时</td><td><code>cached || compute()</code></td></tr>
+              <tr><td>对象比较</td><td>默认比较引用身份，不比较深层内容</td><td><code>{} === {}</code> 为 false</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>集合选择</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>问题形状</th><th>结构</th><th>关键 API</th></tr></thead>
+            <tbody>
+              <tr><td>固定字段的一个实体</td><td>object</td><td>点号、方括号、对象展开</td></tr>
+              <tr><td>有顺序、可重复的序列</td><td>Array</td><td>map、filter、find、some、every</td></tr>
+              <tr><td>动态键到值</td><td>Map</td><td>get、set、has、size</td></tr>
+              <tr><td>唯一成员</td><td>Set</td><td>add、has、delete、size</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>会修改原数组的常见方法</h2>
+        <p><code>push</code>、<code>pop</code>、<code>shift</code>、<code>unshift</code>、<code>splice</code>、<code>sort</code>、<code>reverse</code> 会修改原数组。<code>map</code>、<code>filter</code>、<code>slice</code>、<code>concat</code>、<code>toSorted</code>、<code>toReversed</code> 返回新数组。</p>
+        <pre><code>const updated = {
+  ...note,
+  tags: [...note.tags, "node"],
+};</code></pre>
+        <p>展开是浅复制；嵌套变化的每一层都要显式复制。</p>
+      </section>
+
+      <section>
+        <h2>函数与参数</h2>
+        <ul>
+          <li>函数是一等值：可存储、传入、返回。</li>
+          <li>参数都按值传递；对象值里保存引用，所以可以经引用修改共享对象。</li>
+          <li><code>let</code> / <code>const</code> 是块级作用域；变量按源码嵌套位置查找。</li>
+          <li>闭包让函数持续访问创建时可见的词法绑定。</li>
+          <li>防卫分支早返回，主路径通常更清楚。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>最小诊断清单</h2>
+        <ol>
+          <li>这是静态诊断还是运行时异常？</li>
+          <li>表达式实际产生了什么值？用 <code>typeof</code> 只作初步观察。</li>
+          <li>条件是否依赖了 truthiness，而业务需要更精确的谓词？</li>
+          <li>两个变量是否指向同一对象？哪个操作修改了原值？</li>
+          <li>数组方法返回的是新数组、元素、boolean，还是新长度？</li>
+        </ol>
+      </section>
+    </main>
+    <footer class="foot-line"><p>Reference 02 · JavaScript Runtime · Typescript-Startup</p></footer>
+  </body>
+</html>

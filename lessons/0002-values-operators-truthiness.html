@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 02 课：变量、值、原始类型、运算符、相等性、truthiness 与 JavaScript 数值差异。">
+    <title>第 02 课 · 值、运算符与 truthiness</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/javascript-runtime.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 02 / 24</p>
+          <p class="lesson-meta">建议 90 分钟<br>值与表达式<br>Lab 02</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 02</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>变量装的是值，不是 Java 式的固定盒子</h1>
+          <p class="lesson-lead">你会从 JavaScript 真正拥有的值出发，理解 <code>const</code>、<code>let</code>、严格相等、truthiness 和只有一种常用数值类型带来的后果。</p>
+          <div class="callout"><strong>本课代码文件：</strong>把所有 TypeScript 练习依次放入 <code>src/lesson-02.ts</code>。可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>isMeaningfulTitle(title)</code>；它只在去掉首尾空白后仍有字符时返回 <code>true</code>。</p>
+          <ul>
+            <li>能列出常见 JavaScript 原始值，并区分值与变量绑定。</li>
+            <li>能预测 <code>===</code>、<code>Object.is</code>、算术与字符串拼接的结果。</li>
+            <li>能准确说出哪些值是假值，而不是凭 Java/Python 直觉猜。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 55 分钟，Lab 20 分钟，复盘 15 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：从变量声明继续读值与表达式</h2>
+          <p>上一课已经把声明拆成关键字、变量名、类型标注和初始值。现在把注意力放到等号右侧：</p>
+          <pre><code>export function demoStringValue(): string {
+  const title: string = "Release notes";
+  return title;
+}</code></pre>
+          <p><code>title</code> 是变量名，<code>string</code> 是类型标注，<code>"Release notes"</code> 是字符串值。本课继续学习值如何参与运算、比较与条件判断；执行机制留到后续运行时课程。</p>
+          <p>先预测下面三项，再运行示例验证：</p>
+          <ol>
+            <li><code>typeof 42</code> 返回什么？</li>
+            <li><code>Boolean([])</code> 返回什么？</li>
+            <li><code>0.1 + 0.2 === 0.3</code> 返回什么？</li>
+          </ol>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：值、绑定、操作与布尔上下文</h2>
+
+          <h3>1. <code>const</code> 与 <code>let</code> 约束的是绑定</h3>
+          <p>变量名把当前作用域中的一个名字绑定到值。<code>const</code> 表示这个名字不能重新绑定；它不承诺对象内部不可变。<code>let</code> 允许重新绑定。现代 TypeScript 默认先用 <code>const</code>，只有确实需要给同一名字赋新值时再用 <code>let</code>；本课程不使用函数作用域且易产生提升困惑的 <code>var</code>。</p>
+          <pre><code>export function demoBindingMutation(): string {
+  const tags = ["typescript"];
+  tags.push("node");       // Allowed: the array object changed.
+
+  let status = "draft";
+  status = "published";   // Allowed: the binding changed.
+
+  return `${status}: ${tags.join(", ")}`;
+}</code></pre>
+          <p>第一段没有重新给 <code>tags</code> 赋值；数组本身被修改。第 04 课会系统处理可变与不可变更新。</p>
+
+          <h3>2. JavaScript 的原始值集合</h3>
+          <p>常见原始值是 <code>string</code>、<code>number</code>、<code>boolean</code>、<code>undefined</code>、<code>null</code>、<code>bigint</code> 和 <code>symbol</code>。除它们之外，数组、函数、日期和正则表达式都属于对象。原始值本身不可变：字符串方法会返回新字符串，不会在原位置改写字符。</p>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>值</th><th>例子</th><th>本课关注点</th></tr></thead>
+              <tbody>
+                <tr><td>string</td><td><code>"note"</code></td><td>UTF-16 字符串、模板字符串、不可变</td></tr>
+                <tr><td>number</td><td><code>42</code>、<code>NaN</code>、<code>Infinity</code></td><td>通常是 IEEE 754 双精度浮点数</td></tr>
+                <tr><td>boolean</td><td><code>true</code>、<code>false</code></td><td>条件结果与布尔上下文</td></tr>
+                <tr><td>undefined</td><td><code>undefined</code></td><td>常表示缺失或尚未赋值</td></tr>
+                <tr><td>null</td><td><code>null</code></td><td>显式空值；第 08 课深入</td></tr>
+                <tr><td>bigint</td><td><code>9007199254740993n</code></td><td>任意精度整数，不能和 number 混算</td></tr>
+                <tr><td>symbol</td><td><code>Symbol("id")</code></td><td>唯一标识；主线只需识别</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>3. <code>number</code> 同时承担整数与小数</h3>
+          <p>JavaScript 没有日常使用中的 <code>int</code>、<code>long</code>、<code>float</code>、<code>double</code> 分家。<code>42</code> 与 <code>3.14</code> 都是 <code>number</code>。这让 API 简洁，也意味着你必须知道浮点误差、安全整数范围和特殊数值。</p>
+          <pre><code>export function inspectNumberValues() {
+  const parsed = Number("not-a-number");
+
+  return {
+    nan: Number.isNaN(parsed),
+    type: typeof parsed,
+    // @ts-expect-error — NaN never equals itself.
+    equalsItself: parsed === NaN,
+    finite: Number.isFinite(Infinity),
+    safeInteger: Number.isSafeInteger(9_007_199_254_740_991),
+    exactDecimal: 0.1 + 0.2 === 0.3,
+  };
+}</code></pre>
+          <p>涉及货币时，不能天真地把小数金额连续相加。常见做法是用最小货币单位的安全整数，或选择经过验证的十进制方案；本课程的 Notes CLI 不处理货币，因此不引入额外库。</p>
+          <h4><code>NaN</code> 是 number，但不等于自己</h4>
+
+            <p><code>NaN</code> 表示某次数值运算没有产生有效数字。检测它应使用 <code>Number.isNaN</code>，而不是与 <code>NaN</code> 比较。</p>
+
+          <h3>4. 运算符可能转换值，严格相等尽量拒绝猜测</h3>
+          <p><code>+</code> 同时支持数值加法和字符串拼接。当任一操作数触发字符串转换时，结果可能不是你想的算术。<code>==</code> 会执行复杂的隐式转换；<code>===</code> 不做这类类型转换，因此是课程默认。</p>
+          <pre><code>export function compareOperators() {
+  const addition = 1 + 2;          // 3
+  const concatenation = "1" + 2;  // "12"
+  // @ts-expect-error — JavaScript coerces this string at runtime.
+  const subtraction = "5" - 2;    // 3
+  // @ts-expect-error — TypeScript warns about comparing unrelated types.
+  const looseEquality = 0 == false;  // true
+  // @ts-expect-error — TypeScript warns about comparing unrelated types.
+  const strictEquality = 0 === false; // false
+
+  return { addition, concatenation, subtraction, looseEquality, strictEquality };
+}</code></pre>
+          <p><code>Object.is</code> 与 <code>===</code> 基本相似，但特殊处理 <code>NaN</code> 与正负零：<code>Object.is(NaN, NaN)</code> 为 <code>true</code>，<code>Object.is(0, -0)</code> 为 <code>false</code>。日常业务比较优先 <code>===</code>；只有特殊数值语义需要时再用 <code>Object.is</code>。</p>
+
+          <h3>5. truthiness 是转成布尔值的规则，不是“非空集合”规则</h3>
+          <p>条件语句会把表达式转换成布尔值。假值只有有限集合：<code>false</code>、<code>0</code>、<code>-0</code>、<code>0n</code>、<code>""</code>、<code>null</code>、<code>undefined</code> 和 <code>NaN</code>。其余值都是真值，包括字符串 <code>"false"</code>、空数组 <code>[]</code> 和空对象 <code>{}</code>。</p>
+          <pre><code>export function inspectTruthiness() {
+  const rawTitle = "   ";
+
+  return {
+    whitespace: Boolean(rawTitle),
+    meaningful: rawTitle.trim().length &gt; 0,
+    emptyString: Boolean(""),
+    falseText: Boolean("false"),
+    emptyArray: Boolean([]),
+    emptyObject: Boolean({}),
+    notANumber: Boolean(NaN),
+  };
+}</code></pre>
+
+          <h4>字符串清理必须显式</h4>
+
+            <p>原字符串包含空格，所以是真值；业务上却没有可见标题。把业务谓词完整写出来，代码才说明真实意图。</p>
+
+          <div class="callout"><strong>实践规则：</strong>如果业务条件是“字符串去掉空白后有内容”，就直接写这个条件；不要把笼统的 truthiness 当成精确业务规则。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>主题</th><th>Java</th><th>Python</th><th>JavaScript / TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>变量类型</td><td>声明类型约束变量</td><td>名字可绑定任意值</td><td>运行时像 Python；TS 静态约束绑定</td></tr>
+                <tr><td>常用数值</td><td>多种整数/浮点原始类型</td><td><code>int</code> 任意精度，<code>float</code> 双精度</td><td>多数数值统一为双精度 <code>number</code></td></tr>
+                <tr><td>空集合布尔值</td><td>对象不能直接当 boolean</td><td>空 list/dict 为假</td><td>空 array/object 为真</td></tr>
+                <tr><td>相等</td><td><code>==</code> 对原始值比较值，对对象比较引用</td><td><code>==</code> 通常比较值</td><td><code>===</code> 不隐式转换；对象比较引用身份</td></tr>
+                <tr><td>常量绑定</td><td><code>final</code> 引用不能重绑，对象仍可变</td><td>没有强制常量关键字</td><td><code>const</code> 与 Java final 引用很相似</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>这里最值得迁移的 Java 经验是：<code>const</code> 不等于深度不可变。最需要抑制的 Python 直觉是：空数组和空对象在 JavaScript 中并不是假值。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：默认值运算符的语义不同</h3>
+            <pre><code>export function compareDefaultOperators() {
+  const requestedLimit = 0;
+
+  const looseDefault = requestedLimit || 20;   // 20
+  const nullishDefault = requestedLimit ?? 20; // 0
+
+  return { looseDefault, nullishDefault };
+}</code></pre>
+            <p><code>||</code> 在左侧为任何假值时选择右侧；<code>??</code> 只在左侧为 <code>null</code> 或 <code>undefined</code> 时选择右侧。如果 <code>0</code> 是合法值，<code>??</code> 更符合“缺失才使用默认值”的业务含义。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：对象相等比较的是身份</h3>
+            <pre><code>export function compareObjectIdentity() {
+  const first = { id: "note-1" };
+  const second = { id: "note-1" };
+  const alias = first;
+
+  return {
+    sameContent: first === second,
+    sameReference: first === alias,
+  };
+}</code></pre>
+            <p>两个对象内容相同也不是同一个对象。后续测试不能用 <code>===</code> 判断深层结构相等，而要使用专门的深度断言。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 02</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>用 <code>let</code> 表示对象会变化。</strong> 只有变量需要重新绑定时才需要 <code>let</code>；对象内部变化与绑定变化是两件事。</li>
+            <li><strong>相信 <code>==</code> 会“方便地帮忙”。</strong> 隐式转换规则复杂且输入边界难以推断；默认使用 <code>===</code>。</li>
+            <li><strong>用 <code>value || fallback</code> 处理所有默认值。</strong> 合法的 <code>0</code>、空字符串或 <code>false</code> 会被覆盖；缺失语义通常用 <code>??</code>。</li>
+            <li><strong>把 <code>NaN</code> 当成非 number。</strong> <code>typeof NaN</code> 是 <code>"number"</code>，必须用专门谓词检查。</li>
+            <li><strong>沿用 Python 空集合为假的直觉。</strong> JavaScript 中任何数组和普通对象都是真值。</li>
+            <li><strong>用浮点数直接表示需要精确十进制的业务。</strong> 先明确精度模型，再选择表示方法。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入第 03 课前，你应当能够：</p>
+          <ul>
+            <li>区分 <code>const</code> 绑定不可重设与对象内部不可变。</li>
+            <li>写出 JavaScript 假值的完整常用集合，并指出空数组/空对象是真值。</li>
+            <li>说明为什么默认用 <code>===</code>，何时 <code>??</code> 比 <code>||</code> 更准确。</li>
+            <li>用 <code>Number.isNaN</code>、<code>Number.isFinite</code> 和显式字符串条件表达业务规则。</li>
+            <li>解释 <code>number</code> 与 Java <code>int</code> / Python <code>int</code> 的关键差异。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Glossary/Falsy">MDN: Falsy</a>：逐项核对假值集合。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Equality_comparisons_and_sameness">MDN: Equality comparisons and sameness</a>：比较 <code>==</code>、<code>===</code> 与 <code>Object.is</code>。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number">MDN: Number</a>：查看浮点数、安全整数和数值检查方法。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing">MDN: Nullish coalescing operator</a>：理解 <code>??</code> 与 <code>||</code> 的边界。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 02：把“有标题”写成精确谓词</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-02.ts</code>，把本课示例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>任务</h3>
+            <p>在 <code>src/lesson-02.ts</code> 中导出并实现 <code>isMeaningfulTitle(title: string): boolean</code>。</p>
+            <ul>
+              <li><code>"Release notes"</code> 返回 <code>true</code>。</li>
+              <li><code>"  draft  "</code> 返回 <code>true</code>。</li>
+              <li><code>""</code>、<code>"   "</code>、只包含换行和制表符的字符串返回 <code>false</code>。</li>
+              <li>不修改输入，不使用正则表达式，不用 <code>Boolean(title)</code> 代替业务条件。</li>
+            </ul>
+          </div>
+          <p>这个 Lab 很短，但目标重要：让代码表达“清理后仍有字符”，而不是表达“原值碰巧是真值”。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 分成两个概念步骤</summary>
+            <div class="details-body"><p>先得到去掉首尾空白的新字符串，再判断这个新字符串是否还有字符。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 找到两个成员</summary>
+            <div class="details-body"><p>字符串的 <code>trim()</code> 返回清理后的新字符串；字符串的 <code>length</code> 是字符单元数量。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 写出布尔表达式</summary>
+            <div class="details-body"><p>比较 <code>title.trim().length</code> 是否大于零，比较表达式本身已经产生 boolean，不需要额外三元表达式。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>空数组 <code>[]</code> 出现在 JavaScript 条件中时会怎样？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>空数组会被当成假值处理</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>空数组会被当成真值处理</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>/** @lab */
+export function isMeaningfulTitle(title: string): boolean {
+  return title.trim().length &gt; 0;
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1 行</dt><dd>静态契约要求输入是 string，结果一定是 boolean；函数导出供黑盒测试调用。</dd>
+                <dt>第 2 行</dt><dd><code>trim()</code> 创建去除两端空白的新字符串；<code>length &gt; 0</code> 直接生成精确布尔值。</dd>
+                <dt>第 3 行</dt><dd>没有修改传入字符串，也没有可观察副作用。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 02</code></pre>
+          <p>只验收本课 Lab 导出的 <code>isMeaningfulTitle</code>，覆盖可见字符、首尾空格、空字符串、多种空白和函数类型；不会运行其他课程的测试。</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0001-typescript-javascript-node.html">← 上一课：基础语法</a>
+          <a href="0003-control-flow-functions-scope.html">下一课：控制流与函数 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 02 · Values before annotations · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

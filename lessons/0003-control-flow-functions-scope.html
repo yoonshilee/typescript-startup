@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 03 课：学习条件、循环、函数声明、箭头函数与返回函数的基础写法。">
+    <title>第 03 课 · 控制流与函数</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/type-system.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 03 / 24</p>
+          <p class="lesson-meta">建议 80 分钟<br>控制流与返回函数<br>Lab 03</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 03</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>控制流决定路径，函数组织可复用步骤</h1>
+          <p class="lesson-lead">本课继续建立语法手感：用条件和循环选择路径，把函数当作值传递或返回。返回函数为什么能继续使用外层变量，留到第 13 课结合 JavaScript 与 Node 的执行模型解释。</p>
+          <div class="callout"><strong>本课代码文件：</strong>把所有 TypeScript 练习依次放入 <code>src/lesson-03.ts</code>。可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>createTagNormalizer(prefix)</code>，返回一个记住规范化前缀的新函数。</p>
+          <ul>
+            <li>使用 <code>if</code>、<code>return</code> 和 <code>for...of</code> 表达清晰路径。</li>
+            <li>读懂函数声明、箭头函数和函数返回类型。</li>
+            <li>写出“外层接收配置，内层处理输入”的返回函数。</li>
+          </ul>
+          <p><strong>时间预算：</strong>语法与跟写 40 分钟，代码实验 15 分钟，Lab 与复盘 25 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：表达式先产生值，控制流再选择是否使用</h2>
+          <p>第 02 课中，比较表达式会产生 boolean，任意值进入条件位置还会按照 truthiness 转换。本课不改变这条规则，只是在它上面建立路径：</p>
+          <pre><code>export function demoTitleAcceptance(): string {
+  function describeTitleAcceptance(title: string): string {
+    const hasTitle = title.trim().length &gt; 0;
+
+    if (hasTitle) {
+      return "Title accepted.";
+    }
+
+    return "Title rejected.";
+  }
+
+  return describeTitleAcceptance("Release notes");
+}</code></pre>
+          <p>外层案例保存固定调试输入；内部 helper 的 <code>hasTitle</code> 保存一个 <code>boolean</code> 值，<code>if</code> 根据它决定是否进入花括号中的分支。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：路径、重复与返回函数</h2>
+
+          <h3>1. 条件语句选择路径，尽早返回减少嵌套</h3>
+          <p><code>if</code>、<code>else if</code> 和 <code>else</code> 从上到下检查条件，只执行第一个匹配分支。函数中遇到 <code>return</code> 会立即结束当前调用并把值交回调用者。对无效输入尽早返回，通常比把主要逻辑包在多层条件里更容易读。</p>
+          <pre><code>export function demoLimit(): string {
+  function describeLimit(limit: number): string {
+    if (!Number.isFinite(limit) || limit &lt; 0) {
+      return "invalid";
+    }
+
+    if (limit === 0) {
+      return "none";
+    }
+
+    return "positive";
+  }
+
+  return describeLimit(1);
+}</code></pre>
+          <p>三个返回路径互斥。执行到最后一行已经隐含“有限、非负且不为零”，所以不必重复条件。</p>
+
+          <h3>2. 循环重复执行，但循环形式应表达意图</h3>
+          <p><code>for...of</code> 直接遍历可迭代值，适合数组、字符串、Map 和 Set；经典 <code>for</code> 适合确实需要索引或步长；<code>while</code> 适合次数事先未知、由条件推进的过程。<code>for...in</code> 遍历对象的可枚举键，不是数组值循环的默认选择。</p>
+          <pre><code>export function demoTagLoop(): string[] {
+  function uppercaseTagsWithLoop(tags: string[]): string[] {
+    const uppercaseTags: string[] = [];
+
+    for (const tag of tags) {
+      uppercaseTags.push(tag.toUpperCase());
+    }
+
+    return uppercaseTags;
+  }
+
+  return uppercaseTagsWithLoop(["typescript", "node", "cli"]);
+}</code></pre>
+          <p>循环体每次获得一个新的块级 <code>tag</code> 绑定。只有需要提前结束时才使用 <code>break</code>，只跳过当前项时使用 <code>continue</code>；普通映射和筛选在第 04 课用数组方法表达会更直接。</p>
+
+          <h3>3. 函数既是可调用代码，也是普通值</h3>
+          <p>TypeScript 函数可以放入变量、作为参数传入，也可以作为返回值返回。函数类型描述它接收什么、返回什么。</p>
+          <pre><code>export function demoFunctionAlias(): string {
+  function normalize(value: string): string {
+    return value.trim().toLowerCase();
+  }
+
+  const normalizeAgain = normalize;
+  return normalizeAgain(" TypeScript ");
+}</code></pre>
+          <p>函数声明适合表达主要动作；箭头函数适合短回调和返回函数。本课只比较写法，不展开 <code>this</code> 等内部差异。</p>
+
+          <h3>4. 返回函数把一次配置变成可重复步骤</h3>
+          <pre><code>export function demoPrefixes(): string[] {
+  function withPrefix(prefix: string): (value: string) =&gt; string {
+    return (value: string): string =&gt; `${prefix}:${value}`;
+  }
+
+  const labelCourse = withPrefix("course");
+  const labelProject = withPrefix("project");
+  return [labelCourse("typescript"), labelProject("cli")];
+}</code></pre>
+          <p>先按语法读：外层函数接收 <code>prefix</code>，返回一个“接收字符串并返回字符串”的函数；返回的箭头函数使用 <code>prefix</code> 与自己的 <code>value</code>。为什么外层调用结束后仍能使用 <code>prefix</code>，将在第 13 课解释。</p>
+          <h4>两个配置产生两个处理函数</h4>
+
+            <p>两次调用分别返回函数。现在只观察它们拥有不同配置和输出；内部保存机制留到第 13 课。</p>
+
+          <div class="callout"><strong>本课边界：</strong>会写、会调用、会读函数类型即可；暂时不需要画调用帧或词法环境。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>主题</th><th>Java</th><th>Python</th><th>JavaScript / TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>函数作为值</td><td>lambda、方法引用、函数式接口</td><td>函数天然是一等对象</td><td>函数天然是一等对象，TS 可描述函数类型</td></tr>
+                <tr><td>块级作用域</td><td>局部变量通常按块作用域</td><td><code>if</code>/<code>for</code> 不创建普通局部作用域</td><td><code>let</code>/<code>const</code> 按块作用域</td></tr>
+                <tr><td>循环值</td><td>增强 for 遍历值</td><td><code>for item in iterable</code></td><td><code>for...of</code> 遍历可迭代值</td></tr>
+                <tr><td>返回函数</td><td>返回函数式接口或 lambda</td><td>直接返回函数</td><td>直接返回函数，并写出函数类型</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>这一阶段只迁移可见的语法结构：条件、循环、参数、返回值和返回函数。作用域如何查找变量、函数如何保存外层状态，统一放到运行模型课程。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：<code>for...of</code> 与 <code>for...in</code> 回答不同问题</h3>
+            <pre><code>export function compareArrayIteration() {
+  function collectIteration(tags: string[]) {
+    const values: string[] = [];
+    const keys: string[] = [];
+
+    for (const tag of tags) {
+      values.push(tag);
+    }
+
+    for (const key in tags) {
+      keys.push(key);
+    }
+
+    return { values, keys };
+  }
+
+  return collectIteration(["ts", "node"]);
+}</code></pre>
+            <p>前者遍历数组值，后者遍历可枚举属性键。需要数组值时默认选择 <code>for...of</code>。参数属于内部 helper，外层案例负责传入固定数组。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：箭头函数直接返回对象时需要圆括号</h3>
+            <pre><code>export function demoArrowObject() {
+  const makeNote = (value: string) =&gt; ({
+    title: value,
+    status: "active",
+  });
+
+  return makeNote("TypeScript");
+}</code></pre>
+            <p>箭头函数直接返回对象时，圆括号告诉解析器花括号是对象字面量，不是函数体。去掉圆括号会得到完全不同的解析结果。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 03</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>把 <code>for...in</code> 当成 Java 增强 for。</strong> 数组值遍历使用 <code>for...of</code>。</li>
+            <li><strong>所有分支都写 <code>else</code>。</strong> 已经 <code>return</code> 的防卫分支之后，主路径无需再嵌套。</li>
+            <li><strong>看见 <code>() =&gt; string</code> 就把它当成调用。</strong> 这是函数类型；真正调用需要在函数值后写 <code>()</code>。</li>
+            <li><strong>箭头函数返回对象时忘记圆括号。</strong> <code>() =&gt; ({ ... })</code> 才是直接返回对象字面量。</li>
+            <li><strong>在循环里修改正在遍历的集合。</strong> 可能跳项或产生难以预测的路径；先构造新结果通常更清晰。</li>
+            <li><strong>为了短而堆叠三元表达式。</strong> 多分支业务路径用具名函数和清晰 <code>if</code> 更容易验证。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入第 04 课前，你应当能够：</p>
+          <ul>
+            <li>根据意图选择 <code>if</code>、<code>for...of</code>、经典 <code>for</code> 或 <code>while</code>。</li>
+            <li>说明函数是一等值，并写出返回函数的 TypeScript 签名。</li>
+            <li>使用箭头函数写短回调或返回函数。</li>
+            <li>调用两个配置不同的返回函数并预测各自结果。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Control_flow_and_error_handling">MDN: Control flow and error handling</a>：复习条件与控制流。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Loops_and_iteration">MDN: Loops and iteration</a>：比较循环形式。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/functions.html">TypeScript Handbook: More on Functions</a>：阅读函数类型表达式与调用签名。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 03：创建记住前缀的标签规范化器</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-03.ts</code>，把本课示例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>任务</h3>
+            <p>实现 <code>createTagNormalizer(prefix: string): (tag: string) =&gt; string</code>。</p>
+            <ul>
+              <li>外层函数先把前缀执行 <code>trim()</code> 与 <code>toLowerCase()</code>。</li>
+              <li>返回的函数把传入 tag 同样清理并转小写。</li>
+              <li>用冒号连接：<code>createTagNormalizer(" Course ")(" TypeScript ")</code> 返回 <code>"course:typescript"</code>。</li>
+              <li>不同 normalizer 必须记住各自前缀；函数不能打印或修改参数。</li>
+            </ul>
+          </div>
+          <p>这不是为了少写一次 <code>trim()</code>，而是为了练习“一次配置，生成一个处理函数”的代码形状。它为什么有效，第 13 课会再展开。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 外层函数负责什么</summary>
+            <div class="details-body"><p>外层函数只做两件事：创建规范化后的前缀绑定，返回另一个函数。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 内层函数如何访问前缀</summary>
+            <div class="details-body"><p>内层箭头函数可以直接使用外层已经声明的 <code>normalizedPrefix</code>。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 返回值表达式</summary>
+            <div class="details-body"><p>在内层函数中用模板字符串连接前缀、冒号和 <code>tag.trim().toLowerCase()</code>。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend><code>createTagNormalizer</code> 必须返回什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>一个接收 string 并返回 string 的函数</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>一个接收 number 并返回 number 的函数</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>/** @lab */
+export function createTagNormalizer(
+  prefix: string,
+): (tag: string) =&gt; string {
+  const normalizedPrefix = prefix.trim().toLowerCase();
+
+  return (tag: string): string =&gt;
+    `${normalizedPrefix}:${tag.trim().toLowerCase()}`;
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1–3 行</dt><dd>外层函数接受 string，并承诺返回另一个“string 到 string”的函数。</dd>
+                <dt>第 4 行</dt><dd>外层函数先创建规范化后的前缀。</dd>
+                <dt>第 5 行</dt><dd>空行分隔配置阶段与返回行为，不影响运行。</dd>
+                <dt>第 6–7 行</dt><dd>返回的箭头函数清理 tag，并使用 <code>normalizedPrefix</code> 组合结果。</dd>
+                <dt>第 8 行</dt><dd>右花括号结束外层函数；变量保存机制留到第 13 课解释。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 03</code></pre>
+          <p>只验收本课 Lab 导出的 <code>createTagNormalizer</code>：测试创建两个不同前缀的函数，反复调用并验证清理结果。通过后请指出外层参数、外层返回类型和内层参数分别在哪里。</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0002-values-operators-truthiness.html">← 上一课：值与运算符</a>
+          <a href="0004-collections-and-immutability.html">下一课：集合与不可变更新 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 03 · Control flow and returned functions · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

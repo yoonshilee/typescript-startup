@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="TypeScript 控制流收窄、判别联合、泛型与类型关系速查。">
+    <title>Reference · 收窄与泛型</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#reference">跳到速查正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="参考页导航">
+        <a class="context-link" href="../index.html#references">全部速查</a>
+        <a class="context-link" href="../index.html#route">24 课</a>
+      </nav>
+    </header>
+    <main id="reference" class="reference-shell">
+      <header class="reference-header">
+        <h1>收窄与泛型速查</h1>
+        <p>收窄回答“当前路径究竟是哪一种值”，泛型回答“不同类型之间保持什么关系”。</p>
+        <p class="print-note">REFERENCE 04 / 06 · 第 07–12 课配套</p>
+      </header>
+
+      <section>
+        <h2>常用收窄证据</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>检查</th><th>适用值</th><th>例子</th></tr></thead>
+            <tbody>
+              <tr><td><code>typeof</code></td><td>原始值与 function</td><td><code>typeof value === "string"</code></td></tr>
+              <tr><td>严格相等</td><td>字面量、null、undefined</td><td><code>status === "active"</code></td></tr>
+              <tr><td><code>in</code></td><td>属性存在性</td><td><code>"message" in value</code></td></tr>
+              <tr><td><code>instanceof</code></td><td>具有运行时构造器关系的对象</td><td><code>error instanceof Error</code></td></tr>
+              <tr><td><code>Array.isArray</code></td><td>数组</td><td><code>Array.isArray(value)</code></td></tr>
+              <tr><td>判别字段</td><td>判别联合</td><td><code>command.kind === "add"</code></td></tr>
+              <tr><td>类型谓词</td><td>复用自定义运行时检查</td><td><code>value is Note</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>类型断言 <code>value as Note</code> 不是证据；它只是要求检查器相信你。外部 JSON 必须先作为 unknown 逐项验证。</p>
+      </section>
+
+      <section>
+        <h2>判别联合与穷尽检查</h2>
+        <pre><code>type Result&lt;T, E&gt; =
+  | { ok: true; value: T }
+  | { ok: false; error: E };
+
+function unwrap&lt;T, E&gt;(result: Result&lt;T, E&gt;): T {
+  if (result.ok) {
+    return result.value;
+  }
+  throw result.error;
+}</code></pre>
+        <p>每条路径通过 <code>ok</code> 获得不同字段。需要锁住全部分支时，把剩余值赋给 never；新增变体会在未处理位置产生诊断。</p>
+      </section>
+
+      <section>
+        <h2>泛型：保留关系，不是把 any 换个字母</h2>
+        <pre><code>function first&lt;T&gt;(values: readonly T[]): T | undefined {
+  return values[0];
+}
+
+const firstTag = first(["ts", "node"]); // string | undefined
+const firstId = first([1, 2]);           // number | undefined</code></pre>
+        <p><code>T</code> 同时出现在输入元素和输出中，表达“输出与输入元素同类型”。如果类型参数只出现一次，通常不提供关系价值，直接使用具体类型或 unknown 可能更诚实。</p>
+      </section>
+
+      <section>
+        <h2>约束与类型查询</h2>
+        <pre><code>function getProperty&lt;T, K extends keyof T&gt;(
+  value: T,
+  key: K,
+): T[K] {
+  return value[key];
+}</code></pre>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>语法</th><th>问题</th><th>例子结果</th></tr></thead>
+            <tbody>
+              <tr><td><code>keyof T</code></td><td>T 有哪些允许的属性键</td><td><code>"id" | "title"</code></td></tr>
+              <tr><td><code>T[K]</code></td><td>T 的 K 属性是什么类型</td><td><code>Note["title"]</code> 为 string</td></tr>
+              <tr><td><code>typeof value</code></td><td>从值位置取得静态类型</td><td>配置对象的推断类型</td></tr>
+              <tr><td><code>K extends keyof T</code></td><td>K 必须是 T 的有效键</td><td>拒绝拼错属性名</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>条件与映射类型</h2>
+        <pre><code>type ElementOf&lt;T&gt; = T extends readonly (infer Item)[]
+  ? Item
+  : never;
+
+type Optional&lt;T&gt; = {
+  [Key in keyof T]?: T[Key];
+};</code></pre>
+        <p>条件类型在类型层根据可赋值关系选择；<code>infer</code> 从匹配结构中命名类型；映射类型遍历键。先用内置工具类型，只有多处真实关系无法直接表达时才自定义。</p>
+      </section>
+
+      <section>
+        <h2>停止类型体操的信号</h2>
+        <ul>
+          <li>类型错误比业务规则更难解释。</li>
+          <li>调用者需要断言才能使用“安全”抽象。</li>
+          <li>只为一个调用点建立多层条件类型。</li>
+          <li>运行时边界仍未校验，却投入大量精力推导内部类型。</li>
+          <li>一个直接对象类型或两个具名函数更短、更容易测试。</li>
+        </ul>
+      </section>
+    </main>
+    <footer class="foot-line"><p>Reference 04 · Narrowing and Generics · Typescript-Startup</p></footer>
+  </body>
+</html>

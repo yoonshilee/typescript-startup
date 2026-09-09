@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="TypeScript 第 17 课：package.json、pnpm、tsconfig、检查与构建。">
+    <title>Lesson 17 · package.json、pnpm、tsconfig、检查与构建</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="topbar">
+      <a class="brand" href="../index.html">Typescript-Startup</a>
+      <nav aria-label="课程导航"><a href="../index.html#route">课程目录</a><a href="../reference/modules-and-toolchain.html">本课速查</a></nav>
+    </header>
+
+    <main class="lesson-layout">
+      <aside class="lesson-rail" aria-label="课程目录">
+        <p>LESSON 17 / 24</p><p>建议 85 分钟</p><p>工具链是一组契约</p><p>Lab 17</p>
+        <ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol>
+      </aside>
+
+      <article id="lesson" class="lesson-paper">
+        <header class="lesson-title">
+          <p class="eyebrow">TOOLCHAIN · PACKAGE CONTRACT · EMIT</p>
+          <h1>检查回答“源码是否合法”，构建回答“运行什么产物”</h1>
+          <p class="lead">package.json 描述包与命令入口，pnpm 解析并运行脚本，tsconfig 决定 TypeScript 怎样检查与生成 JavaScript。它们不是三个互相替代的配置文件，而是一条可以逐段验证的执行链。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-17.ts</code>。所有案例保持顶层、命名、零参数导出；带参数的 Lab 前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>createBuildPlan(scripts)</code>，从 package scripts 中按 check → test → build 生成真实可执行步骤，缺少的脚本不伪造。</p>
+          <ul><li>区分依赖声明、脚本名与 shell 命令。</li><li>理解 <code>pnpm run</code> 怎样把本地依赖命令加入 PATH。</li><li>区分 <code>tsc --noEmit</code> 与带 <code>outDir</code> 的构建。</li><li>能从输入文件、检查配置、产物目录追踪一次构建。</li></ul>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：Node 执行 JavaScript，不执行已擦除的类型</h2>
+          <pre><code>export function demoRuntimeArtifact(): string {
+  const source = "src/cli.ts";
+  const emitted = "dist/cli.js";
+  return `${source} -&gt; ${emitted}`;
+}</code></pre>
+          <p>第 13–14 课已经确认：类型检查与模块运行是不同阶段。本课把这两个阶段写成重复可用的项目命令。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：从脚本名追到实际进程</h2>
+          <h3>1. package.json 是包边界，也是命令索引</h3>
+          <pre><code>export function demoPackageScripts() {
+  const scripts = {
+    typecheck: "tsc --noEmit",
+    build: "tsc -p tsconfig.build.json",
+  };
+  return scripts;
+}</code></pre>
+          <p>脚本名是人类稳定入口，值才是被 shell 执行的命令。调用者记住 <code>pnpm typecheck</code>，项目可以在 package.json 中调整实现。</p>
+          <h4>检查不写产物，构建写入 outDir</h4>
+
+          <p><code>noEmit</code> 让 TypeScript 只报告类型问题；构建配置关闭 noEmit，并把 JavaScript 写入 outDir。两者共用严格规则，但产物职责不同。</p>
+
+          <h3>2. packageManager 固定“由谁解释锁文件”</h3>
+          <pre><code>export function demoPackageManagerField(): string {
+  const manifest = { packageManager: "pnpm@11.22.0" };
+  return manifest.packageManager.split("@")[0] ?? "unknown";
+}</code></pre>
+          <p>它记录包管理器和版本意图；lockfile 固定解析结果。不要混用 npm、pnpm 与 yarn 改写同一个依赖图。</p>
+
+          <h3>3. include 决定输入，rootDir 决定产物相对结构</h3>
+          <pre><code>export function demoConfigScope(): string {
+  const config = {
+    include: ["src/**/*.ts"],
+    rootDir: "src",
+    outDir: "dist",
+  };
+  return `${config.rootDir} =&gt; ${config.outDir}`;
+}</code></pre>
+          <p><code>rootDir</code> 不会替代 include。它约束需要生成的文件都在根目录下，并保留相对目录结构。</p>
+          <div class="callout"><strong>追踪顺序：</strong>package script → 本地可执行文件 → tsconfig → include 输入 → 检查诊断或 outDir 产物。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll"><table class="comparison-table"><thead><tr><th>职责</th><th>Java</th><th>Python</th><th>TypeScript / Node</th></tr></thead><tbody>
+            <tr><td>项目命令</td><td>Gradle/Maven task</td><td>pyproject script / task</td><td>package.json scripts</td></tr>
+            <tr><td>依赖锁定</td><td>lock/catalog</td><td>lock file</td><td>pnpm-lock.yaml</td></tr>
+            <tr><td>静态检查</td><td>javac</td><td>mypy/pyright</td><td>tsc --noEmit</td></tr>
+            <tr><td>构建输出</td><td>class/jar</td><td>wheel 或源码</td><td>JavaScript 到 outDir</td></tr>
+          </tbody></table></div>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+          <div class="example"><h3>示例 A：脚本可以组合脚本</h3><pre><code>export function demoScriptComposition(): string {
+  return "pnpm validate &amp;&amp; pnpm typecheck &amp;&amp; pnpm test";
+}</code></pre><p><code>&amp;&amp;</code> 在前一步成功后才继续，失败退出码能阻止后续步骤。</p></div>
+          <div class="example"><h3>示例 B：自动发现本课案例</h3><pre><code>pnpm examples 17</code></pre><p>runner 按源码顺序执行零参数导出函数；<code>createBuildPlan</code> 因 <code>/** @lab */</code> 被排除。</p></div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ul><li><strong>把 typecheck 当成 build。</strong>noEmit 成功后仍没有可运行文件。</li><li><strong>直接调用全局 tsc。</strong>项目脚本应使用本地锁定版本。</li><li><strong>认为 rootDir 会选择源码。</strong>输入集合由 files/include/exclude 决定。</li><li><strong>同时维护两套相同配置。</strong>构建配置应 extends 基础配置，只覆盖 emit 差异。</li><li><strong>忽略失败退出码。</strong>脚本链会继续制造误导产物。</li></ul>
+        </section>
+
+        <section id="contract" class="lesson-section">
+          <h2>Learning Contract</h2>
+          <p>进入 Node 文件持久化前，你应能从一个 pnpm 脚本追踪到实际命令、配置输入和输出目录；解释检查为何不生成文件，以及构建为何不应悄悄跳过类型失败。</p>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul><li><a href="https://pnpm.io/cli/run">pnpm run</a>：脚本执行与本地依赖 PATH。</li><li><a href="https://pnpm.io/package_json">pnpm package.json</a>：包管理器相关字段。</li><li><a href="https://www.typescriptlang.org/tsconfig/noEmit.html">TypeScript noEmit</a>：仅检查不生成。</li><li><a href="https://www.typescriptlang.org/tsconfig/rootDir.html">TypeScript rootDir</a>：输入相对结构与输出约束。</li></ul>
+        </section>
+
+        <section id="lab" class="lesson-section lab-section">
+          <h2>Lab 17：从 package scripts 生成构建计划</h2>
+          <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-17.ts</code>，保存案例、类型与 Lab。</p>
+          <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>。</p>
+          <h3>你要交付什么</h3>
+          <pre><code>type BuildStepName = "check" | "test" | "build";
+type BuildStep = {
+  readonly name: BuildStepName;
+  readonly command: string;
+};
+
+createBuildPlan(
+  scripts: Readonly&lt;Record&lt;string, string | undefined&gt;&gt;,
+): BuildStep[]</code></pre>
+          <h3>运行规则</h3>
+          <ul><li>固定按 check、test、build 顺序检查。</li><li>脚本存在且不是空字符串时加入结果。</li><li>command 原样保留，不执行、不解析 shell。</li><li>不修改输入对象；没有任何脚本时返回空数组。</li></ul>
+          <h3>实现限制</h3><p>只需一个固定名称数组和循环；不要读取真实 package.json、启动子进程或新增配置抽象。Lab 前保留 <code>/** @lab */</code>。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details><summary>提示 1 · 顺序从哪里来</summary><p>不要依赖对象键顺序；先定义 <code>["check", "test", "build"] as const</code>。</p></details>
+          <details><summary>提示 2 · 怎样排除空脚本</summary><p>读取值后检查 <code>command?.trim()</code>，但结果保留原字符串。</p></details>
+          <details><summary>提示 3 · 返回什么</summary><p>命中时 push <code>{ name, command }</code>。</p></details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0"><fieldset><legend>typecheck 与 build 的职责怎样区分？</legend>
+            <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>检查只报告问题，构建才生成运行产物</span></label>
+            <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>检查会生成产物，构建只报告运行问题</span></label>
+          </fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details><summary>显示完整答案</summary><div class="solution-body"><pre><code>export type BuildStepName = "check" | "test" | "build";
+
+export type BuildStep = {
+  readonly name: BuildStepName;
+  readonly command: string;
+};
+
+/** @lab */
+export function createBuildPlan(
+  scripts: Readonly&lt;Record&lt;string, string | undefined&gt;&gt;,
+): BuildStep[] {
+  const names = ["check", "test", "build"] as const;
+  const plan: BuildStep[] = [];
+  for (const name of names) {
+    const command = scripts[name];
+    if (command?.trim()) plan.push({ name, command });
+  }
+  return plan;
+}</code></pre><dl class="line-notes"><dt>类型</dt><dd>限定允许的步骤名与只读结果字段。</dd><dt>names</dt><dd>显式保存课程要求的执行顺序。</dd><dt>循环</dt><dd>只收集真实、非空的脚本，不替用户猜命令。</dd><dt>返回</dt><dd>结果是计划数据，不产生进程副作用。</dd></dl></div></details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2><pre><code>pnpm lesson 17
+pnpm examples 17</code></pre>
+          <p>验收覆盖固定顺序、缺失与空白脚本、命令原样保留、输入不变与静态类型。完成后请解释：为什么计划函数不应该直接调用 pnpm？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航"><a href="0016-error-result-abort-signal.html">← 上一课：失败传播</a><a href="0018-node-files-path-process-json.html">下一课：文件与持久化 →</a></nav>
+      </article>
+    </main>
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 17 · Toolchain · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

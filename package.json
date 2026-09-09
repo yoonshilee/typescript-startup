@@ -1,0 +1,28 @@
+{
+  "name": "typescript-startup",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "A 24-lesson TypeScript foundation course for Java and Python developers.",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=24.12 <25"
+  },
+  "scripts": {
+    "validate": "node --check assets/course.js && node --check scripts/serve-course.mjs && html-validate index.html lessons/*.html reference/*.html && node scripts/check-links.mjs && node scripts/check-course.mjs",
+    "course": "node scripts/serve-course.mjs",
+    "examples": "node scripts/run-examples.mjs",
+    "lesson": "node scripts/check-lesson.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/lessons.test.ts tests/run-examples.test.mjs",
+    "build": "tsc -p tsconfig.build.json",
+    "check": "pnpm validate && pnpm typecheck && pnpm test && pnpm build && node dist/cli.js --help",
+    "notes": "node src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.13",
+    "html-validate": "10.10.0",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 12 课：条件类型、infer、分布式条件类型与模板字面量类型。">
+    <title>第 12 课 · 条件类型、infer 与模板字面量类型</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/narrowing-and-generics.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 12 / 24</p>
+          <p class="lesson-meta">建议 95 分钟<br>按结构选择类型<br>Lab 12</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 12</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>让输入类型决定输出类型，同时保持运行时实现诚实</h1>
+          <p class="lesson-lead">条件类型根据可赋值关系选择结果，infer 从匹配结构中提取类型，模板字面量类型把字符串字面量组合成新协议。三者共同表达“输入结构变化，输出类型随之变化”，但都不会生成运行时代码。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-12.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>从命令对象联合中提取 kind 字面量，派生对应的 <code>note:kind</code> 事件名类型，并实现保留输入字面量的 <code>createNoteEvent(kind)</code>。</p>
+          <ul>
+            <li>读懂 <code>T extends U ? X : Y</code> 的可赋值判断与两个结果分支。</li>
+            <li>使用 <code>infer</code> 命名数组元素、函数返回值或对象属性中的类型。</li>
+            <li>预测裸类型参数遇到联合类型时的分布行为。</li>
+            <li>用方括号阻止分布，比较“逐个成员判断”与“整体判断”。</li>
+            <li>用模板字面量类型组合有限字符串协议，并与运行时模板字符串分开理解。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 60 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：第 10 课已经会从已知键读取类型</h2>
+          <pre><code>export function demoIndexedAccess(): string {
+  type Note = {
+    readonly id: string;
+    title: string;
+  };
+  type Title = Note["title"];
+
+  const title: Title = "Draft";
+  return title;
+}</code></pre>
+          <p>索引访问要求先知道要读哪个键。现在的问题更一般：输入可能是数组、函数、带 kind 的对象或完全不同的结构。条件类型先判断结构是否匹配；匹配时 infer 可以直接给其中某一部分命名。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：在类型层匹配结构、提取部分、组合结果</h2>
+
+          <h3>1. 条件类型选择的是类型结果，不是运行时代码</h3>
+          <pre><code>export function demoConditionalBranch(): string[] {
+  type Category&lt;T&gt; = T extends string ? "text" : "other";
+  type TitleCategory = Category&lt;string&gt;;
+  type CountCategory = Category&lt;number&gt;;
+
+  const titleCategory: TitleCategory = "text";
+  const countCategory: CountCategory = "other";
+  return [titleCategory, countCategory];
+}</code></pre>
+          <p>编译器检查 string 是否可赋给 string，选择 "text"；number 不可赋给 string，选择 "other"。JavaScript 运行时只看到数组和值，不会执行一次隐藏的 if。</p>
+
+          <h3>2. extends 表示可赋值关系，不表示类继承</h3>
+          <pre><code>export function demoStructuralMatch(): boolean[] {
+  type HasStringId&lt;T&gt; =
+    T extends { readonly id: string } ? true : false;
+  type NoteMatch = HasStringId&lt;{ id: string; title: string }&gt;;
+  type CountMatch = HasStringId&lt;{ id: number }&gt;;
+
+  const noteMatch: NoteMatch = true;
+  const countMatch: CountMatch = false;
+  return [noteMatch, countMatch];
+}</code></pre>
+          <p>第一个对象即使没有 implements 或父类，也拥有兼容的 string id，所以匹配成功。这里比较的是结构可赋值性；不要把它翻译成 Java 的 extends 或 Python 的子类检查。</p>
+
+          <h3>3. 把约束放进条件，允许不匹配输入得到 never</h3>
+          <pre><code>export function demoConditionalConstraint(): string {
+  type MessageOf&lt;T&gt; =
+    T extends { message: unknown } ? T["message"] : never;
+  type ErrorMessage = MessageOf&lt;{ message: string }&gt;;
+  type MissingMessage = MessageOf&lt;{ code: number }&gt;;
+
+  const message: ErrorMessage = "Not found";
+  type MissingMessageIsNever = MissingMessage extends never ? true : false;
+  const missingMessageIsNever: MissingMessageIsNever = true;
+  void missingMessageIsNever;
+  return message;
+}</code></pre>
+          <p>若把 <code>T extends { message: unknown }</code> 写在泛型参数处，不含 message 的类型会在使用别名时直接报错。把检查移入条件后，所有 T 都能进入；匹配分支读取 T["message"]，不匹配分支得到 never。</p>
+
+          <h3>4. infer 在匹配位置声明一个待推断类型变量</h3>
+          <pre><code>export function demoArrayElementInference(): string {
+  type ElementOf&lt;T&gt; =
+    T extends readonly (infer Item)[] ? Item : never;
+  type Title = ElementOf&lt;readonly string[]&gt;;
+  type Count = ElementOf&lt;number[]&gt;;
+
+  const title: Title = "Draft";
+  const count: Count = 2;
+  return `${title}:${count}`;
+}</code></pre>
+          <p>匹配 readonly 数组结构时，infer Item 表示“把这里出现的元素类型命名为 Item”。string[] 得到 string，number[] 得到 number；非数组进入 never 分支。infer 只能出现在条件类型的 extends 子句中。</p>
+
+          <h3>5. 同一模式可以提取函数返回类型</h3>
+          <pre><code>export function demoReturnInference(): string {
+  type OutputOf&lt;T&gt; =
+    T extends (...args: never[]) =&gt; infer Output ? Output : never;
+
+  function createSummary() {
+    return { count: 2, active: true };
+  }
+
+  const summary: OutputOf&lt;typeof createSummary&gt; = createSummary();
+  return `${summary.count}:${summary.active}`;
+}</code></pre>
+          <p>typeof 先取得 createSummary 的函数类型，条件类型再匹配其返回位置并命名为 Output。内置 ReturnType 使用相同方向的思想；真实代码优先使用内置工具，自己写这个别名是为了看清机制。</p>
+
+          <h3>6. 裸类型参数遇到联合时会逐成员分布</h3>
+          <pre><code>export function demoDistribution() {
+  type ToArray&lt;T&gt; = T extends unknown ? T[] : never;
+  type ToArrayTogether&lt;T&gt; = [T] extends [unknown] ? T[] : never;
+  type SeparateArrays = ToArray&lt;string | number&gt;;
+  type MixedArray = ToArrayTogether&lt;string | number&gt;;
+
+  const separate: SeparateArrays = ["Draft"];
+  const mixed: MixedArray = ["Draft", 2];
+  // const invalid: SeparateArrays = ["Draft", 2]; // Mixed elements are rejected.
+  return { separate, mixed };
+}</code></pre>
+
+          <ol>
+            <li>输入是 string | number，T 在 extends 左侧保持裸露。</li>
+            <li>编译器分别计算 ToArray&lt;string&gt; 与 ToArray&lt;number&gt;。</li>
+            <li>结果重新联合为 string[] | number[]，不是 (string | number)[]。</li>
+          </ol>
+          <h4>方括号让联合整体参与一次判断</h4>
+          <p>对照同一代码块中的 <code>ToArrayTogether</code>：<code>[T] extends [unknown]</code> 的左右两侧都包成单元素元组，T 不再是裸类型参数，因此只判断一次，结果是 (string | number)[]。所以 separate 只能装同一类元素，mixed 可以同时装字符串与数字。方括号在这里是类型语法，不会创建运行时数组。</p>
+
+          <h3>7. never 会从联合中消失，因此条件类型可以筛选联合</h3>
+          <pre><code>export function demoUnionFilter(): string {
+  type StringsOnly&lt;T&gt; = T extends string ? T : never;
+  type CommandKind = StringsOnly&lt;"add" | 404 | "list"&gt;;
+
+  const kind: CommandKind = "list";
+  return kind;
+}</code></pre>
+          <p>分布后得到 "add" | never | "list"；never 没有可取值成员，合并时消失，留下两个字符串字面量。内置 Exclude 与 Extract 就利用了这种模式。</p>
+
+          <h3>8. 模板字面量类型组合字符串字面量联合</h3>
+          <pre><code>export function demoTemplateLiteralUnion(): string[] {
+  type Action = "add" | "list";
+  type EventName = `note:${Action}`;
+
+  const events: EventName[] = ["note:add", "note:list"];
+  return events;
+}</code></pre>
+          <p>模板中的 Action 是两个成员，因此 EventName 展开为 "note:add" | "note:list"。若有多个联合插值位置，编译器会生成所有组合；成员很多时应改用普通 string 和运行时校验，避免难读的大联合。</p>
+
+          <h3>9. infer 与模板字面量类型可以串成一条派生链</h3>
+          <pre><code>export function demoEventDerivation(): string {
+  type KindOf&lt;T&gt; =
+    T extends { readonly kind: infer Kind extends string }
+      ? Kind
+      : never;
+  type NoteEvent&lt;T&gt; = `note:${KindOf&lt;T&gt;}`;
+  type Command =
+    | { kind: "add"; title: string }
+    | { kind: "list" };
+
+  const event: NoteEvent&lt;Command&gt; = "note:add";
+  return event;
+}</code></pre>
+          <p>Command 联合先分布；每个成员匹配 readonly kind 并推断受 string 约束的 Kind；两个字面量再进入模板，得到 "note:add" | "note:list"。源命令新增字面量成员时，事件类型自动跟随。</p>
+
+          <h3>10. 运行时仍要由普通 JavaScript 创建字符串</h3>
+          <pre><code>export function demoRuntimeTemplate(): string {
+  function createEvent&lt;Kind extends string&gt;(
+    kind: Kind,
+  ): `note:${Kind}` {
+    return `note:${kind}`;
+  }
+
+  return createEvent("add");
+}</code></pre>
+          <p>类型签名保留输入字面量与输出字面量的关系，函数体中的模板字符串才真正创建字符。Kind、条件类型和模板字面量类型都会擦除；编译后不会验证外部字符串是否符合事件协议。</p>
+          <div class="callout"><strong>最小实现：</strong>类型层只表达输入与输出关系，运行时只用一个模板字符串。这里不需要事件类、注册表、类型断言或递归字符串解析器。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>按输入类型选择结果</td><td>重载、泛型边界或密封类型分支</td><td>overload、TypeVar 与类型检查器规则</td><td><code>T extends U ? X : Y</code></td></tr>
+                <tr><td>从结构提取类型</td><td>通常通过显式泛型参数表达</td><td>TypeVar 或协议中的显式关系</td><td><code>infer</code> 匹配位置</td></tr>
+                <tr><td>处理联合成员</td><td>sealed hierarchy 逐分支处理</td><td>Union 的静态分支分析</td><td>裸类型参数自动分布</td></tr>
+                <tr><td>字符串协议</td><td>enum、常量或代码生成</td><td>Literal 与普通字符串</td><td>模板字面量类型组合 Literal</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>TypeScript 能从现有 JavaScript 结构派生精确类型，因此不要求运行时类层级。但这些关系由编译器证明，不会像 Java enum 一样生成对象，也不会像 Python 运行时检查那样拒绝外部坏值。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：优先使用内置 Exclude 与 Extract</h3>
+            <pre><code>export function demoExcludeAndExtract(): string[] {
+  type Command = "add" | "list" | "archive";
+  type Writable = Exclude&lt;Command, "list"&gt;;
+  type ReadOnly = Extract&lt;Command, "list" | "show"&gt;;
+
+  const writable: Writable = "archive";
+  const readOnly: ReadOnly = "list";
+  return [writable, readOnly];
+}</code></pre>
+            <p>Exclude 删除可赋给第二个参数的成员；Extract 只保留可赋给第二个参数的成员。它们已经清楚表达意图时，不要再包装一层自定义条件类型。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：内置字符串转换类型仍只存在于类型层</h3>
+            <pre><code>export function demoUppercaseEvent(): string {
+  type Action = "add" | "list";
+  type MetricName = `NOTE_${Uppercase&lt;Action&gt;}`;
+
+  const metric: MetricName = "NOTE_ADD";
+  return metric;
+}</code></pre>
+            <p>Uppercase 把字面量成员转换为大写类型。它不会调用字符串的 toUpperCase，也不会改变变量里的值；需要转换运行时输入时仍要显式执行 JavaScript。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：宽 string 会让模板结果保持开放</h3>
+            <pre><code>export function demoWideStringEvent(): string {
+  type EventName = `note:${string}`;
+  const event: EventName = "note:custom";
+  return event;
+}</code></pre>
+            <p>EventName 不是有限枚举，而是所有以 note: 开头的字符串。模板字面量类型能约束形状，但不能枚举无限输入，也不会在运行时解析或验证前缀。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 12</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>把条件类型当成运行时 if。</strong> 它选择类型结果，不读取变量值。</li>
+            <li><strong>把 extends 理解成类继承。</strong> 条件类型判断结构可赋值性。</li>
+            <li><strong>在条件外约束 T，却又期待不匹配输入得到 never。</strong> 外部约束会先拒绝调用。</li>
+            <li><strong>把 infer 当成任意位置可用的声明。</strong> 它只能在条件类型的 extends 匹配结构中出现。</li>
+            <li><strong>忘记裸类型参数会分布。</strong> string | number 可能得到两个数组的联合，而不是混合数组。</li>
+            <li><strong>到处用方括号阻止分布。</strong> 先决定语义需要逐成员还是整体判断。</li>
+            <li><strong>认为 never 是一个可返回的运行时值。</strong> 它表示没有成员，联合化简时会消失。</li>
+            <li><strong>用模板字面量类型制造巨大组合。</strong> 大型或外部字符串集合更适合 string 加运行时校验。</li>
+            <li><strong>认为精确类型会自动验证 JSON。</strong> 类型擦除后，外部输入仍是需要检查的 unknown。</li>
+            <li><strong>重复实现内置工具类型。</strong> Exclude、Extract、ReturnType 已能清楚表达时直接使用。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入 JavaScript / Node 执行模型前，你应当能够：</p>
+          <ul>
+            <li>手动计算简单条件类型的 true 与 false 分支。</li>
+            <li>解释条件类型中的 extends 是可赋值判断，不是运行时继承。</li>
+            <li>用 infer 从数组元素、函数返回值或对象属性中提取类型。</li>
+            <li>逐步展开分布式条件类型，并说明 never 如何过滤联合成员。</li>
+            <li>用方括号阻止分布，并预测整体判断结果。</li>
+            <li>从字符串字面量联合计算模板字面量类型的组合。</li>
+            <li>区分类型层字符串协议与运行时模板字符串创建。</li>
+            <li>优先选择内置工具类型，并避免递归或巨大联合的过度设计。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/conditional-types.html">TypeScript Handbook: Conditional Types</a>：语法、约束位置与基本分支。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#inferring-within-conditional-types">Inferring Within Conditional Types</a>：用 infer 从匹配结构提取类型。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types">Distributive Conditional Types</a>：联合分布与方括号抑制。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html">TypeScript Handbook: Template Literal Types</a>：字符串联合组合与内置转换类型。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/utility-types.html#excludeuniontype-excludedmembers">TypeScript Utility Types: Exclude and Extract</a>：条件类型的内置筛选工具。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 12：从命令 kind 派生事件名</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-12.ts</code>，把本课案例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>导出两个类型和一个泛型函数：</p>
+            <pre><code>KindOf&lt;T&gt;
+NoteEvent&lt;T&gt;
+createNoteEvent&lt;Kind extends string&gt;(
+  kind: Kind,
+): `note:${Kind}`</code></pre>
+
+            <h3>类型规则</h3>
+            <ol>
+              <li><code>KindOf&lt;T&gt;</code> 匹配具有 readonly string kind 的对象，并用受 string 约束的 infer 提取 Kind；不匹配时得到 never。</li>
+              <li>输入是对象联合时，KindOf 必须分布并产生所有 kind 字面量的联合。</li>
+              <li><code>NoteEvent&lt;T&gt;</code> 把 KindOf 的每个成员转换成对应的 <code>note:kind</code> 字面量。</li>
+              <li>createNoteEvent 的返回类型必须保留调用方传入的 Kind；传入 "add" 时结果类型是 "note:add"。</li>
+            </ol>
+
+            <h3>运行规则</h3>
+            <ul>
+              <li>返回由普通模板字符串创建的 <code>note:${kind}</code>。</li>
+              <li>接受任意 string，包括 "add"、"list"、"archive" 与自定义字符串。</li>
+              <li>不要使用 any、unknown、类型断言、重载、分支、查找表或字符串替换。</li>
+              <li>Lab 函数前保留 <code>/** @lab */</code>，让示例 runner 忽略带参数的验收函数。</li>
+            </ul>
+          </div>
+          <p>本课只证明编译期关系并创建一个字符串。第 13 课会把类型擦除、词法作用域、闭包与原型放回 JavaScript / Node 的真实执行过程。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先匹配 kind 属性</summary>
+            <div class="details-body"><p>KindOf 的 extends 右侧写一个只含 readonly kind 的对象结构；在 kind 的类型位置使用 <code>infer Kind extends string</code>。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 把提取结果放进模板</summary>
+            <div class="details-body"><p>NoteEvent 不需要第二个条件类型，直接把 <code>KindOf&lt;T&gt;</code> 插入 <code>note:</code> 模板字面量类型。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 运行时实现只有一个表达式</summary>
+            <div class="details-body"><p>函数返回普通模板字符串 <code>note:${kind}</code>。TypeScript 7 能根据泛型 Kind 检查它与返回模板类型的关系。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>条件类型 <code>T extends U ? X : Y</code> 中的 extends 表示什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>在运行时检查 T 是否继承 U，再执行对应的代码分支</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>在类型层检查 T 能否赋给 U，再选择对应的结果类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>export type KindOf&lt;T&gt; =
+  T extends { readonly kind: infer Kind extends string }
+    ? Kind
+    : never;
+
+export type NoteEvent&lt;T&gt; = `note:${KindOf&lt;T&gt;}`;
+
+/** @lab */
+export function createNoteEvent&lt;Kind extends string&gt;(
+  kind: Kind,
+): `note:${Kind}` {
+  return `note:${kind}`;
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1–4 行</dt><dd>KindOf 让联合成员分别匹配 readonly kind；infer 提取受 string 约束的 Kind，不匹配成员变成 never。</dd>
+                <dt>第 6 行</dt><dd>NoteEvent 把提取出的每个 kind 字面量加上 note: 前缀；联合会自动展开。</dd>
+                <dt>第 8 行</dt><dd>@lab 告诉自动示例 runner 不要执行这个带参数的验收函数。</dd>
+                <dt>第 9–11 行</dt><dd>泛型 Kind 保留输入字符串字面量，返回模板类型描述同一个 Kind 与输出的关系。</dd>
+                <dt>第 12 行</dt><dd>JavaScript 模板字符串创建真实返回值；没有断言、映射表或运行时类型对象。</dd>
+                <dt>第 13 行</dt><dd>函数结束；条件类型与 infer 在编译后均被擦除。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 12
+pnpm examples 12</code></pre>
+          <p>Lab 验收检查 <code>KindOf</code> 的结构匹配、string 约束、联合分布与 never 分支，<code>NoteEvent</code> 的精确事件联合，以及 <code>createNoteEvent</code> 的运行时结果、任意字符串输入和字面量返回关系。通过后请说明：类型模板与函数体里的模板字符串分别在哪个阶段工作？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0011-utility-mapped-types-safe-updates.html">← 上一课：工具类型与安全更新</a>
+          <a href="0013-javascript-node-execution-model.html">下一课：JavaScript / Node 执行模型 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 12 · Conditional and template literal types · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

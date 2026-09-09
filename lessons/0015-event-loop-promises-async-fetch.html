@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 15 课：Node 事件循环、Promise、async/await、并发组合与 fetch。">
+    <title>第 15 课 · 事件循环、Promise 与 fetch</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/async-and-node-cli.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 15 / 24</p>
+          <p class="lesson-meta">建议 105 分钟<br>等待而不阻塞<br>Lab 15</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 15</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>等待一个结果，不等于堵住整个线程</h1>
+          <p class="lesson-lead">Promise 表示未来的完成结果；await 暂停当前 async 函数，把继续执行安排到 Promise 反应任务中。Node 的事件循环可以在等待 I/O 时推进其他回调，但任何正在运行的 JavaScript 回调仍会执行到结束。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-15.ts</code>，异步案例仍写成导出的无参函数；runner 会 await 返回值；参数化 Lab 前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>loadNoteTitles(ids, loadNote)</code>，同时启动所有独立加载，用 Promise.all 等待，并按输入 id 顺序返回 title。</p>
+          <ul>
+            <li>区分同步调用栈、Promise reaction 微任务与计时器/I/O 回调。</li>
+            <li>理解 async 函数总是返回 Promise，await 只暂停当前函数。</li>
+            <li>判断任务之间是依赖顺序还是可并发关系。</li>
+            <li>使用 Promise.all 保序聚合，并理解任一拒绝会让整体拒绝。</li>
+            <li>用 fetch 读取 Response，区分网络失败与 HTTP 非成功状态。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 70 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：第 13 课的同步调用会执行到返回</h2>
+          <pre><code>export function demoSynchronousOrder(): string[] {
+  const trace = ["start"];
+  trace.push("work");
+  trace.push("end");
+  return trace;
+}</code></pre>
+          <p>当前 JavaScript 调用栈不会被另一个普通回调从中间切开。异步 API 能登记未来工作，但当前同步片段仍先完成；事件循环随后才选择已就绪的后续任务。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：立即启动、保存 Promise、稍后继续</h2>
+
+          <h3>1. Promise 是一个普通运行时对象</h3>
+          <pre><code>export async function demoPromiseValue(): Promise&lt;boolean&gt; {
+  const pending = Promise.resolve("Draft");
+  return pending instanceof Promise;
+}</code></pre>
+          <p>创建 Promise 会立即得到对象；它可能处于 pending、fulfilled 或 rejected。状态只能向完成方向改变一次。Promise 不是线程，也不会让其中的同步计算自动并行。</p>
+
+          <h3>2. async 函数每次调用都返回 Promise</h3>
+          <pre><code>export async function demoAsyncReturn(): Promise&lt;string&gt; {
+  async function readTitle(): Promise&lt;string&gt; {
+    return "Draft";
+  }
+
+  const titlePromise = readTitle();
+  return titlePromise;
+}</code></pre>
+          <p>readTitle 中 return "Draft" 会完成返回的 Promise。外层 async 函数返回另一个 Promise，并采用 titlePromise 的最终状态；调用者必须 await 或显式处理 then/catch。</p>
+
+          <h3>3. await 把当前函数拆成“之前”和“继续”</h3>
+          <pre><code>export async function demoAwaitSuspension(): Promise&lt;string[]&gt; {
+  const trace = ["before"];
+  const titlePromise = Promise.resolve("Draft");
+  const title = await titlePromise;
+  trace.push(`after:${title}`);
+  return trace;
+}</code></pre>
+          <p>执行到 await 时，函数先返回 pending Promise；当 titlePromise fulfilled，后半段作为 Promise reaction 继续。即使等待已完成 Promise，继续部分也不会插回当前同步表达式中间。</p>
+
+          <h3>4. 微任务在计时器回调前得到机会</h3>
+          <pre><code>export async function demoMicrotaskOrder(): Promise&lt;string[]&gt; {
+  const trace = ["sync"];
+  setTimeout(() =&gt; trace.push("timer"), 0);
+  queueMicrotask(() =&gt; trace.push("microtask"));
+
+  await new Promise&lt;void&gt;((resolve) =&gt; setTimeout(resolve, 0));
+  trace.push("after-await");
+  return trace;
+}</code></pre>
+          <p>本例得到 sync、microtask、timer、after-await。当前调用结束后先清空微任务；两个 timer 按登记顺序就绪，第二个 resolve 又安排 await 的继续。不要把这简化成“所有异步都按源码顺序”。</p>
+
+          <h3>5. await 不会让 CPU 循环让出线程</h3>
+          <pre><code>export async function demoAwaitedValue(): Promise&lt;number&gt; {
+  let total = 0;
+  for (let value = 1; value &lt;= 3; value += 1) {
+    total += value;
+  }
+
+  return await Promise.resolve(total);
+}</code></pre>
+          <p>循环仍在事件循环线程同步完成；只有到 await Promise 时当前函数才暂停。给 CPU 密集循环外面套 async 不会自动放入 Worker，也不会提升并行度。</p>
+
+          <h3>6. 独立操作要先全部调用，再一起等待</h3>
+          <pre><code>export async function demoConcurrentStart(): Promise&lt;string[]&gt; {
+  const started: string[] = [];
+
+  async function load(id: string): Promise&lt;string&gt; {
+    started.push(id);
+    return id.toUpperCase();
+  }
+
+  const pending = ["n1", "n2", "n3"].map((id) =&gt; load(id));
+  const values = await Promise.all(pending);
+  return [...started, ...values];
+}</code></pre>
+          <p>map 同步调用三次 load，先得到三个 Promise；Promise.all 再等待它们。这和在 for 循环里每轮立即 await 不同，后者要等前一个完成才启动下一个。</p>
+          <h4>map 收集异步函数返回的 Promise</h4>
+
+          <p>map 不会 await 回调，结果类型是 Promise&lt;string&gt;[]。要得到 string[] 必须交给 Promise.all；直接 await pending 只会得到原数组。</p>
+          <div class="callout"><strong>并发边界：</strong>先调用所有独立任务，再由一个 Promise 组合器拥有它们；需要前一步结果时才顺序 await。并发数量很大时应增加显式上限，而不是无界 Promise.all。</div>
+
+          <h3>7. Promise.all 按输入位置排列结果</h3>
+          <pre><code>export async function demoPromiseAllOrder(): Promise&lt;string[]&gt; {
+  const first = Promise.withResolvers&lt;string&gt;();
+  const second = Promise.withResolvers&lt;string&gt;();
+  const combined = Promise.all([first.promise, second.promise]);
+
+  second.resolve("second");
+  first.resolve("first");
+  return combined;
+}</code></pre>
+          <p>第二个先完成，最终仍是 ["first", "second"]。Promise.all 的结果位置对应输入 iterable 的位置，不对应完成顺序；这正是 Lab 能保持 ids 顺序的原因。</p>
+
+          <h3>8. 任一输入拒绝，Promise.all 的结果就拒绝</h3>
+          <pre><code>export async function demoPromiseAllRejection(): Promise&lt;string&gt; {
+  const failure = new Error("load failed");
+
+  try {
+    await Promise.all([
+      Promise.resolve("Draft"),
+      Promise.reject(failure),
+    ]);
+    return "unreachable";
+  } catch (error) {
+    return error === failure ? "same error" : "other error";
+  }
+}</code></pre>
+          <p>Promise.all 不会返回部分标题；它用首个观察到的拒绝原因拒绝。已经启动的其他操作不会自动取消，第 16 课会用 AbortSignal 建立显式取消协议。</p>
+
+          <h3>9. 有依赖关系时才逐个 await</h3>
+          <pre><code>export async function demoSequentialDependency(): Promise&lt;string&gt; {
+  async function findId(): Promise&lt;string&gt; {
+    return "n1";
+  }
+
+  async function loadTitle(id: string): Promise&lt;string&gt; {
+    return `${id}:Draft`;
+  }
+
+  const id = await findId();
+  return loadTitle(id);
+}</code></pre>
+          <p>loadTitle 需要 findId 的结果，所以顺序等待是正确的。并发不是默认优化口号；先画数据依赖，再决定 Promise.all 还是逐步 await。</p>
+
+          <h3>10. fetch 只负责传输，Response 还需要读取</h3>
+          <pre><code>export async function demoFetchText() {
+  const response = await fetch("data:text/plain,Draft");
+  return { ok: response.ok, status: response.status, text: await response.text() };
+}</code></pre>
+          <p>fetch 返回 Promise&lt;Response&gt;；Response 是状态、headers 与 body 流的容器。response.text() 再异步读取 body。Node 24 提供稳定的浏览器兼容 fetch，本例使用 data URL，不依赖外网。</p>
+          <p>一次请求同时观察状态与正文：本例得到 ok: true、status: 200、text: "Draft"。</p>
+          <h4>HTTP 404 通常仍会 fulfilled</h4>
+
+          <p>本例 data URL 返回成功，所以 <code>ok</code> 是 true。真实 HTTP 404/500 通常也会得到 Response，只是 ok 为 false；只有网络、协议或取消等失败使 fetch Promise 拒绝。调用方必须主动定义非成功状态策略。</p>
+
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>Node / TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>未来结果</td><td>CompletableFuture</td><td>coroutine / Future</td><td>Promise&lt;T&gt;</td></tr>
+                <tr><td>暂停当前任务</td><td>thenCompose 或虚拟线程 await 模型</td><td><code>await</code> coroutine</td><td><code>await</code> async function</td></tr>
+                <tr><td>聚合独立任务</td><td>allOf</td><td>asyncio.gather</td><td>Promise.all</td></tr>
+                <tr><td>网络响应</td><td>HttpResponse + body handler</td><td>client response + await body</td><td>Response + text/json</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Java 开发者不要把每个 Promise 想成一条线程；Python 开发者也不要把 Node 的 worker pool 与 asyncio task 混为一谈。Promise 描述完成关系，真正工作可能来自事件循环、操作系统或 Node worker pool。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：Promise.allSettled 保留每个最终状态</h3>
+            <pre><code>export async function demoAllSettled(): Promise&lt;string[]&gt; {
+  const results = await Promise.allSettled([
+    Promise.resolve("Draft"),
+    Promise.reject(new Error("missing")),
+  ]);
+
+  return results.map((result) =&gt; result.status);
+}</code></pre>
+            <p>结果是 ["fulfilled", "rejected"]。只有业务确实需要所有结果时才选 allSettled；Lab 需要全部标题才能成功，所以使用 fail-fast 的 Promise.all。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：空 Promise.all 直接给出空结果</h3>
+            <pre><code>export async function demoEmptyPromiseAll(): Promise&lt;number&gt; {
+  const values = await Promise.all([]);
+  return values.length;
+}</code></pre>
+            <p>结果是 0，不会调用 loader，也不需要特殊分支。Lab 可以直接把空 ids 映射成空 Promise 数组。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：同步异常会变成 async 函数的拒绝</h3>
+            <pre><code>export async function demoAsyncThrow(): Promise&lt;string&gt; {
+  async function fail(): Promise&lt;never&gt; {
+    throw new Error("failed");
+  }
+
+  try {
+    await fail();
+    return "unreachable";
+  } catch {
+    return "rejected";
+  }
+}</code></pre>
+            <p>async 函数体抛出的异常会拒绝返回 Promise；第 16 课会进一步约束 Error、Result 与失败传播。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行异步案例</h3>
+            <pre><code>pnpm examples 15</code></pre>
+            <p>runner 对每个无参导出函数执行 await，因此日志显示最终值而不是 Promise 对象；带 <code>/** @lab */</code> 的 loadNoteTitles 仍由单课验收提供参数。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>认为 Promise 就是一条后台线程。</strong> 它只表示最终完成状态。</li>
+            <li><strong>认为 async 让同步 CPU 工作自动非阻塞。</strong> 函数仍同步运行到第一个真正等待点。</li>
+            <li><strong>认为 await 阻塞整个 Node 线程。</strong> 它只暂停当前 async 函数的继续部分。</li>
+            <li><strong>在循环中逐个 await 独立任务。</strong> 这会无意中串行化。</li>
+            <li><strong>把函数本身传给 Promise.all。</strong> 要先调用函数，提供 Promise。</li>
+            <li><strong>认为 Promise.all 按完成顺序返回。</strong> 它保持输入位置。</li>
+            <li><strong>认为 Promise.all 拒绝会取消其他任务。</strong> 取消必须显式设计。</li>
+            <li><strong>直接 await Array.map(async)。</strong> 数组不是 Promise，应 Promise.all。</li>
+            <li><strong>只要 fetch fulfilled 就当作成功。</strong> 还要检查 response.ok 或 status。</li>
+            <li><strong>启动 Promise 后不 await、不 return、也不 catch。</strong> 拒绝可能变成未处理失败。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入 Error、Result、AbortSignal 与失败传播前，你应当能够：</p>
+          <ul>
+            <li>按同步栈、微任务与计时器回调预测小程序的输出顺序。</li>
+            <li>解释 async 返回 Promise 和 await 拆分继续执行的机制。</li>
+            <li>识别同步 CPU 工作即使位于 async 函数中仍会阻塞。</li>
+            <li>根据数据依赖选择顺序 await 或并发 Promise.all。</li>
+            <li>说明 Promise.all 的输入保序、空输入与 fail-fast 行为。</li>
+            <li>正确组合 Array.map(async ...) 的 Promise 数组。</li>
+            <li>区分 fetch 传输完成、HTTP 状态与 body 读取。</li>
+            <li>让每个启动的 Promise 都有明确的 await、return 或错误处理所有者。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function">MDN: async function</a>：返回 Promise、await 暂停与错误传播。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/all">MDN: Promise.all</a>：并发聚合、输入保序与拒绝行为。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Execution_model">MDN: JavaScript Execution Model</a>：job queue 与 run-to-completion。</li>
+            <li><a href="https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop">Node.js: Don't Block the Event Loop</a>：事件循环、worker pool 与回调成本。</li>
+            <li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/globals.html#fetch">Node.js 24 Globals: fetch</a>：稳定的 fetch 与 Response API。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 15：并发加载笔记并保持输入顺序</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-15.ts</code>，把本课案例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <pre><code>type LoadedNote = {
+  readonly id: string;
+  title: string;
+};
+
+type NoteLoader =
+  (id: string) =&gt; Promise&lt;LoadedNote&gt;;
+
+loadNoteTitles(
+  ids: readonly string[],
+  loadNote: NoteLoader,
+): Promise&lt;string[]&gt;</code></pre>
+
+            <h3>运行规则</h3>
+            <ol>
+              <li>立即按 ids 顺序调用每个 loadNote，不要等待前一个完成后才启动后一个。</li>
+              <li>用 Promise.all 等待全部 LoadedNote。</li>
+              <li>按 ids 对应的原顺序返回 title，即使 Promise 以不同顺序完成。</li>
+              <li>ids 为空时返回空数组且不调用 loader。</li>
+              <li>任一 loader 拒绝时，让返回 Promise 使用同一原因拒绝。</li>
+            </ol>
+
+            <h3>实现限制</h3>
+            <ul>
+              <li>使用 async/await、map 与 Promise.all。</li>
+              <li>不要使用 for/for...of/while、串行 await、计时器、fetch、catch、allSettled、race、any、unknown 或类型断言。</li>
+              <li>不要排序结果，也不要按完成顺序 push。</li>
+              <li>Lab 函数前保留 <code>/** @lab */</code>。</li>
+            </ul>
+          </div>
+          <p>loader 是注入的异步边界，因此测试能精确控制完成顺序而不访问网络。第 16 课会在这个边界上加入 Error、Result 与 AbortSignal。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先得到所有 Promise</summary>
+            <div class="details-body"><p>对 ids 执行 <code>ids.map(loadNote)</code>。map 在当前同步片段中调用所有 loader，得到 Promise 数组。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 一次等待全部结果</summary>
+            <div class="details-body"><p><code>const notes = await Promise.all(...)</code>；notes 的位置与 ids 一致，不用自己恢复顺序。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 最后只投影 title</summary>
+            <div class="details-body"><p>对 fulfilled 后的 notes 做一次同步 map，返回每个 note.title。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend><code>await promise</code> 最准确的执行效果是什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>暂停当前 async 函数并让事件循环中的其他任务继续推进</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>阻塞当前 Node 线程直到 Promise 完成后再返回</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>export type LoadedNote = {
+  readonly id: string;
+  title: string;
+};
+
+export type NoteLoader =
+  (id: string) =&gt; Promise&lt;LoadedNote&gt;;
+
+/** @lab */
+export async function loadNoteTitles(
+  ids: readonly string[],
+  loadNote: NoteLoader,
+): Promise&lt;string[]&gt; {
+  const notes = await Promise.all(ids.map(loadNote));
+  return notes.map((note) =&gt; note.title);
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1–4 行</dt><dd>LoadedNote 描述异步边界完成后提供的数据；id 对消费者只读。</dd>
+                <dt>第 6–7 行</dt><dd>NoteLoader 把一个 string id 映射为未来的 LoadedNote。</dd>
+                <dt>第 9 行</dt><dd>@lab 让自动 runner 不调用需要 ids 与 loader 的函数。</dd>
+                <dt>第 10–13 行</dt><dd>async 函数公开 Promise&lt;string[]&gt;，同时接受 readonly ids。</dd>
+                <dt>第 14 行</dt><dd>map 立即启动所有 loader；Promise.all 等待并按输入位置生成 notes，拒绝则原样传播。</dd>
+                <dt>第 15 行</dt><dd>所有数据就绪后同步提取 title；空 notes 自然得到空数组。</dd>
+                <dt>第 16 行</dt><dd>函数结束；没有串行循环、排序、计时或网络依赖。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 15
+pnpm examples 15</code></pre>
+          <p>Lab 验收用可控 Promise 证明三个 loader 在任何一个完成前已经启动，逆序完成后仍按 ids 返回 title，空输入不调用 loader，拒绝原因保持同一对象；静态检查覆盖 readonly ids、LoadedNote、NoteLoader 与 Promise&lt;string[]&gt;。通过后请说明：为什么完成顺序不同，却不需要手动排序？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0014-esm-package-boundaries-module-resolution.html">← 上一课：ESM 与模块解析</a>
+          <a href="0016-error-result-abort-signal.html">下一课：Error、Result 与 AbortSignal →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 15 · Event loop, promises, async and fetch · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

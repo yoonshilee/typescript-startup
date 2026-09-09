@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 14 课：ESM、package.json 包边界、类型导入、模块 URL 与 NodeNext 解析。">
+    <title>第 14 课 · ESM、包边界与模块解析</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/modules-and-toolchain.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 14 / 24</p>
+          <p class="lesson-meta">建议 100 分钟<br>文件成为模块<br>Lab 14</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 14</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>文件边界既是名称边界，也是运行时加载边界</h1>
+          <p class="lesson-lead">ESM 用静态 import/export 连接模块；Node 根据 specifier、文件扩展名与最近的 package.json 决定怎样加载；TypeScript 必须模仿这个 host，同时把纯类型导入从输出中擦除。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-14.ts</code>，先放本课 import，再按顺序添加导出的无参案例；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现模块级 <code>createModuleNote(title)</code>。同一模块 URL 被重复导入时只评估一次，因此模块私有序号继续递增，而不是重新从 1 开始。</p>
+          <ul>
+            <li>区分 ESM 命名导入、命名导出、默认导出与模块私有绑定。</li>
+            <li>用 <code>import type</code> / <code>export type</code> 明确纯类型边界。</li>
+            <li>识别相对、包、node: 内置与 file: URL specifier。</li>
+            <li>解释 package.json 的 <code>"type": "module"</code> 与扩展名规则。</li>
+            <li>理解模块按 URL 缓存、只评估一次，以及循环依赖的初始化风险。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 65 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：第 13 课的每个模块仍运行普通 JavaScript</h2>
+          <pre><code>export function demoModuleScope(): string {
+  const label = "lesson-14";
+  return label;
+}</code></pre>
+          <p>出现 export 后，文件是模块，顶层绑定属于该模块而不是全局对象。导入者只能访问明确导出的名称；未导出的 label 仍可供模块内函数使用。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：specifier 交给 host，类型关系交给编译器</h2>
+
+          <h3>1. 先把本课的值导入与类型导入放在文件顶部</h3>
+          <pre><code>import { basename } from "node:path";
+import type { PathLike } from "node:fs";</code></pre>
+          <p>basename 是运行时函数，生成的 JavaScript 必须保留第一条 import。PathLike 只描述参数类型，第二条 import 会完整擦除。项目启用了 verbatimModuleSyntax，因此是否写 type 直接决定语句是否保留。</p>
+
+          <h3>2. ESM 给每个文件独立作用域和明确公开表面</h3>
+          <pre><code>const MODULE_LABEL = "lesson-14";
+
+export function demoPrivateBinding(): string {
+  return MODULE_LABEL;
+}</code></pre>
+          <p>MODULE_LABEL 是模块私有绑定；函数是命名导出。导入者不能按名字访问 MODULE_LABEL，也不会因为多个文件都写了同名 const 而冲突。</p>
+
+          <h3>3. export 输出绑定，import 在另一模块建立只读连接</h3>
+          <pre><code>// note-store.ts
+export let noteCount = 0;
+
+export function addNote(): void {
+  noteCount += 1;
+}
+
+// cli.ts
+import { addNote, noteCount } from "./note-store.ts";
+
+addNote();
+console.log(noteCount); // 1</code></pre>
+          <p>命名 import 不是在导入时复制 noteCount 的数字；它连接导出模块中的 live binding，所以 addNote 更新后能读到 1。导入者不能直接给 noteCount 重新赋值。</p>
+
+          <h3>4. import type 明确“只检查，不加载值”</h3>
+          <pre><code>export function demoTypeOnlyImport(): string {
+  function describePath(path: PathLike): string {
+    return typeof path;
+  }
+
+  return describePath("notes.json");
+}</code></pre>
+          <p>PathLike 只出现在类型位置，运行时函数只接收字符串并返回 "string"。若被导入模块有顶层副作用，import type 不会为了这个类型去执行模块。</p>
+
+          <h3>5. export type 同样不会产生运行时导出</h3>
+          <pre><code>export type ModuleDescriptor = {
+  readonly label: string;
+  readonly format: "esm";
+};
+
+export function demoTypeExport(): string {
+  const descriptor: ModuleDescriptor = {
+    label: "lesson-14",
+    format: "esm",
+  };
+  return descriptor.format;
+}</code></pre>
+          <p>其他文件可以 <code>import type { ModuleDescriptor }</code>，但动态查看模块 namespace 时不会出现 ModuleDescriptor。只有 demoTypeExport 这样的值导出进入运行时导出表。</p>
+          <h3>6. package.json 决定 .js 文件位于哪种包语义</h3>
+          <pre><code>{
+  "type": "module"
+}</code></pre>
+          <p>本项目最近的 package.json 写明 type=module，因此普通 .js 输出按 ESM 解释；.mjs 始终是 ESM，.cjs 始终是 CommonJS。不要仅凭源文件看起来像 import/export 就猜运行时格式。</p>
+
+          <h3>7. specifier 的类别决定由谁解析</h3>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>形式</th><th>示例</th><th>Node 的起点</th></tr></thead>
+              <tbody>
+                <tr><td>node: 内置</td><td><code>node:path</code></td><td>Node 内置模块表</td></tr>
+                <tr><td>相对路径</td><td><code>./note-store.ts</code></td><td>当前模块 URL</td></tr>
+                <tr><td>包名称</td><td><code>typescript</code></td><td>包解析与 exports</td></tr>
+                <tr><td>绝对 URL</td><td><code>file:///app/store.js</code></td><td>给定 URL</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>TypeScript 不是运行时 host；它根据 module/moduleResolution 设置模仿 Node，以便提前发现最终 import 无法加载或类型不匹配的问题。</p>
+
+          <h3>8. Node ESM 的相对 specifier 必须写扩展名</h3>
+          <pre><code>// Direct Node 24 source execution:
+import { addNote } from "./note-store.ts";
+
+// tsconfig.build.json rewrites emitted relative extensions:
+import { addNote } from "./note-store.js";</code></pre>
+          <p>课程源码直接由 Node 24 执行，所以相对 TypeScript specifier 写 .ts。构建时 rewriteRelativeImportExtensions 把相对 .ts 改成 .js；Node 运行 dist 时就能找到实际产物。省略扩展名不是 Node ESM 的目录猜测规则。</p>
+
+          <h3>9. node: specifier 明确这是内置运行时依赖</h3>
+          <pre><code>export function demoBuiltinImport(): string {
+  return basename("/workspace/notes.json");
+}</code></pre>
+          <p>结果是 "notes.json"。node:path 不走项目的 node_modules，也不会与同名第三方包混淆；basename 是真实值导入，所以会保留在运行时代码里。</p>
+
+          <h3>10. ESM 使用 import.meta.url 表示当前模块位置</h3>
+          <pre><code>export function demoImportMeta() {
+  const currentModule = new URL(import.meta.url);
+  const resource = new URL("./notes.json", currentModule);
+  return { moduleProtocol: currentModule.protocol, resourceProtocol: resource.protocol };
+}</code></pre>
+          <p><code>moduleProtocol</code> 在本地模块中是 "file:"。ESM 没有 CommonJS 注入的 __filename 与 __dirname；需要路径时先从 import.meta.url 得到 URL，再按具体 API 要求保留 URL 或转换文件路径。</p>
+          <h4>URL 可以安全解析相对模块资源</h4>
+
+          <p><code>resourceProtocol</code> 同样是 "file:"。URL 构造以当前模块为基准解析资源位置，不用字符串拼接当前目录；第 18 课会进一步学习 fileURLToPath 与文件 API。</p>
+
+          <h3>11. 同一规范化 URL 只链接和评估一次</h3>
+          <pre><code>let evaluationCount = 0;
+evaluationCount += 1;
+
+export function demoSingleEvaluation(): number {
+  return evaluationCount;
+}</code></pre>
+          <p>同一进程再次 import 同一 URL 会复用已存在的 module record，所以函数持续返回 1，不会重跑顶层加法。不同 query 或 fragment 会形成不同 URL，可能得到独立模块实例。</p>
+
+          <h3>12. 模块级状态由该模块实例共享</h3>
+          <pre><code>let exampleNextId = 1;
+
+export function demoModuleState(): string[] {
+  function createId(): string {
+    const id = `example-${exampleNextId}`;
+    exampleNextId += 1;
+    return id;
+  }
+
+  return [createId(), createId()];
+}</code></pre>
+          <p>同一模块实例中的导出函数共享 exampleNextId。它不同于第 13 课“每次工厂调用一份闭包状态”：模块状态只有一份，因此必须有清楚的所有权、测试隔离和重置策略。Lab 刻意用它观察缓存，不把它推广成默认设计。</p>
+
+          <h3>13. 循环依赖先建立连接，再按依赖图评估</h3>
+          <pre><code>// a.ts
+import { bValue } from "./b.ts";
+export const aValue = `a:${bValue}`;
+
+// b.ts
+import { aValue } from "./a.ts";
+export const bValue = `b:${aValue}`;</code></pre>
+          <p>两个模块的导入绑定会先链接，但读取尚未完成初始化的 const 可能触发 ReferenceError。不要靠调整 import 顺序猜测修复；更小、更单向的依赖图，或把共享契约移到第三个无副作用模块，通常更清楚。</p>
+
+          <h3>14. 课程优先命名导出，让调用点保持可搜索</h3>
+          <pre><code>export function demoNamedExport(): string {
+  return "named";
+}</code></pre>
+          <p>默认导出允许导入者任意重命名，适合确有单一主要值的模块；本课程的案例和 Lab 使用命名导出，使函数名、自动发现输出和测试契约一致。这里不为风格偏好创建额外包装模块。</p>
+          <div class="callout"><strong>解析顺序：</strong>先确定 host 与模块格式，再分类 specifier、解析目标 URL、链接导入导出，最后按依赖顺序评估一次。类型导入在运行时链路开始前已经擦除。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>Node ESM + TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>公开表面</td><td>public class / method 与 package</td><td>module 属性与 __all__ 约定</td><td>显式 named/default export</td></tr>
+                <tr><td>类型专用依赖</td><td>类型和值通常同一 class</td><td>TYPE_CHECKING 与注解</td><td><code>import type</code> 完全擦除</td></tr>
+                <tr><td>加载身份</td><td>class loader 与类名</td><td>sys.modules 中的模块名</td><td>规范化 module URL</td></tr>
+                <tr><td>相对定位</td><td>classpath / module path</td><td>包名与相对 import</td><td>带扩展名的 URL-like specifier</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Java 开发者常把 package 当作目录可见性，Python 开发者常习惯省略扩展名；Node ESM 更接近 URL 链接模型。TypeScript 的 moduleResolution 只能模拟 host，真正能否加载仍由 Node 和产物布局决定。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：相同文件加不同 query 会成为不同 URL</h3>
+            <pre><code>export function demoUrlIdentity(): boolean {
+  const base = new URL(import.meta.url);
+  const first = new URL(base);
+  const second = new URL(base);
+  second.searchParams.set("version", "2");
+  return first.href === second.href;
+}</code></pre>
+            <p>结果是 false。Node 按 URL 缓存 ESM；不要随意给本地 import 添加 query 来“刷新模块”，那会制造第二份模块状态。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 14</code></pre>
+            <p>runner 导入真实 lesson-14.ts 模块并按源码顺序调用无参命名导出；纯类型导出和模块私有绑定不在运行时列表，带 <code>/** @lab */</code> 的 createModuleNote 不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>认为 import 只是把文件文本粘贴进来。</strong> ESM 先解析、链接，再按图评估模块。</li>
+            <li><strong>用普通 import 引入纯类型。</strong> verbatimModuleSyntax 下应明确写 import type。</li>
+            <li><strong>认为 export type 会出现在模块 namespace。</strong> 它在输出前擦除。</li>
+            <li><strong>省略相对路径扩展名。</strong> Node ESM 要求完整 specifier。</li>
+            <li><strong>源码写 .js 却又期待 Node 直接找到 .ts。</strong> 本项目源码直跑与构建产物由 rewrite 连接。</li>
+            <li><strong>在 ESM 中直接使用 require、__filename 或 __dirname。</strong> 它们不是 ESM 注入绑定。</li>
+            <li><strong>认为同一文件路径每次 import 都重新执行。</strong> 同一 URL 通常复用模块实例。</li>
+            <li><strong>忽略 query/fragment 对缓存身份的影响。</strong> 不同 URL 可产生不同实例。</li>
+            <li><strong>用循环 import 顺序解决初始化错误。</strong> 应重画依赖方向或提取共享模块。</li>
+            <li><strong>把模块顶层副作用当作普通声明。</strong> 第一次评估会真实执行它。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入 Promise、async/await 与事件循环前，你应当能够：</p>
+          <ul>
+            <li>画出两个 ESM 文件的导入、导出和私有绑定边界。</li>
+            <li>区分值 import/export 与 type-only import/export 的输出。</li>
+            <li>根据 package.json type、扩展名和 NodeNext 判断模块格式。</li>
+            <li>把 node:、相对、包与 file: URL specifier 分到正确解析入口。</li>
+            <li>解释源码 .ts 扩展名如何由 build rewrite 成 .js。</li>
+            <li>使用 import.meta.url 而不是假设 CommonJS 目录变量存在。</li>
+            <li>解释 live binding、单次评估与按 URL 缓存。</li>
+            <li>识别循环依赖与顶层副作用的初始化风险。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/esm.html">Node.js 24: ECMAScript Modules</a>：格式标记、specifier、扩展名、URL 与缓存。</li>
+            <li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/packages.html">Node.js 24: Packages</a>：package.json type 与包边界。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/modules/theory.html">TypeScript Modules — Theory</a>：host、模块格式与解析职责。</li>
+            <li><a href="https://www.typescriptlang.org/tsconfig/verbatimModuleSyntax.html">TSConfig: verbatimModuleSyntax</a>：值导入保留与类型导入擦除。</li>
+            <li><a href="https://www.typescriptlang.org/tsconfig/rewriteRelativeImportExtensions.html">TSConfig: rewriteRelativeImportExtensions</a>：相对 TypeScript 扩展名的输出重写。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 14：观察模块缓存与模块私有状态</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-14.ts</code>，把本课 import、案例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>导出一个类型和命名函数；序号绑定保持模块私有：</p>
+            <pre><code>type ModuleNote = {
+  readonly id: string;
+  title: string;
+};
+
+createModuleNote(title: string): ModuleNote</code></pre>
+
+            <h3>运行规则</h3>
+            <ol>
+              <li>在模块顶层声明私有 <code>let nextModuleId = 1</code>，不要导出。</li>
+              <li>每次调用返回新对象，id 为 <code>module-nextModuleId</code>，title 原样保留。</li>
+              <li>返回前后都可以更新计数，但第一个结果必须是 module-1，随后是 module-2、module-3。</li>
+              <li>测试会再次 import 完全相同的模块 URL；模块不得重置序号。</li>
+            </ol>
+
+            <h3>类型与实现限制</h3>
+            <ul>
+              <li>使用命名 export；ModuleNote 只导出类型，createModuleNote 导出运行时值。</li>
+              <li>不要 trim 或修改 title，不要导出 nextModuleId。</li>
+              <li>不要使用 globalThis、process、class、闭包工厂、数组历史、Map、any、unknown 或类型断言。</li>
+              <li>Lab 函数前保留 <code>/** @lab */</code>，让自动 runner 跳过参数化函数。</li>
+            </ul>
+          </div>
+          <p>模块顶层状态只为观察单次评估与缓存；真实持久化会在第 18/22 课交给文件与明确存储边界，而不是依赖进程内计数。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 模块私有绑定写在哪里</summary>
+            <div class="details-body"><p>把 <code>let nextModuleId = 1</code> 写在函数外，但不要加 export。整个模块实例中的函数都能读取它。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 类型和值使用不同 export</summary>
+            <div class="details-body"><p>ModuleNote 写 <code>export type</code>；函数写普通 <code>export function</code>，并在前一行保留 @lab 标记。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 最小运行时实现</summary>
+            <div class="details-body"><p>用当前数字创建 <code>`module-${nextModuleId}`</code>，递增绑定，再返回 <code>{ id, title }</code>。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend><code>import type</code> 的运行时效果是什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>在程序实际运行时加载对应模块并把所有声明导出保留到内存对象中</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>只在类型检查时引用声明并从输出 JavaScript 中擦除</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>let nextModuleId = 1;
+
+export type ModuleNote = {
+  readonly id: string;
+  title: string;
+};
+
+/** @lab */
+export function createModuleNote(title: string): ModuleNote {
+  const note = {
+    id: `module-${nextModuleId}`,
+    title,
+  };
+  nextModuleId += 1;
+  return note;
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1 行</dt><dd>nextModuleId 属于模块实例，不导出；同一 URL 的重复 import 复用这个绑定。</dd>
+                <dt>第 3–6 行</dt><dd>ModuleNote 是纯类型导出，生成 JavaScript 时完全擦除；readonly 只限制调用方写 id。</dd>
+                <dt>第 8 行</dt><dd>@lab 让示例 runner 不调用带 title 参数的验收函数。</dd>
+                <dt>第 9 行</dt><dd>createModuleNote 是命名值导出，导入者拿到指向该模块函数绑定的连接。</dd>
+                <dt>第 10–13 行</dt><dd>用当前模块序号创建新对象并原样保留 title。</dd>
+                <dt>第 14–15 行</dt><dd>更新模块私有绑定后返回；再次导入同一 URL 不会重跑第 1 行。</dd>
+                <dt>第 16 行</dt><dd>函数结束；没有全局对象、工厂类或导出的可变状态。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 14
+pnpm examples 14</code></pre>
+          <p>Lab 验收检查 module-1/2 的顺序、title 原样保留、新对象、重复 import 同一 URL 得到同一 namespace 与函数，并继续产生 module-3；静态检查覆盖命名值导出、ModuleNote 类型、readonly id 和 string title。通过后请说明：为什么第二次 import 没有重新执行 <code>let nextModuleId = 1</code>？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0013-javascript-node-execution-model.html">← 上一课：JavaScript / Node 执行模型</a>
+          <a href="0015-event-loop-promises-async-fetch.html">下一课：事件循环、Promise 与 fetch →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 14 · ESM and module resolution · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

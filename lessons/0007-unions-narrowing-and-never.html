@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 07 课：联合类型、判别联合、控制流收窄、never 与穷尽检查。">
+    <title>第 07 课 · 联合类型与收窄</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/narrowing-and-generics.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 07 / 24</p>
+          <p class="lesson-meta">建议 90 分钟<br>联合与控制流分析<br>Lab 07</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 07</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>联合列出所有可能，控制流逐步排除不可能</h1>
+          <p class="lesson-lead">联合类型不是“放弃确定性”，而是把有限可能写进契约。你将用真实 JavaScript 检查缩小候选集合，用共同字面量字段建立判别联合，并让 <code>never</code> 在新增分支未处理时触发编译错误。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-07.ts</code>，按顺序保存类型与导出的无参案例；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>，必要类型可继续导出。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>建立七种 <code>NoteCommand</code> 判别联合，并实现带 <code>never</code> 穷尽检查的 <code>describeCommand(command)</code>。</p>
+          <ul>
+            <li>用 <code>A | B</code> 表示值属于有限候选之一。</li>
+            <li>在未收窄前只执行所有联合成员都支持的操作。</li>
+            <li>使用 <code>typeof</code>、<code>Array.isArray</code>、<code>in</code> 和字面量字段收窄。</li>
+            <li>把互斥对象状态设计成判别联合，而不是一组互相矛盾的可选字段。</li>
+            <li>用 <code>never</code> 证明 <code>switch</code> 已覆盖全部成员。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 55 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：字面量可以成为类型，对象契约可以共享字段</h2>
+          <p>第 05 课看到 <code>"active"</code> 这样的精确字面量类型，第 06 课用对象类型描述成员。把两者组合，就能让一个共同字段精确指出当前对象是哪种变体：</p>
+          <pre><code>type DraftState = {
+  kind: "draft";
+  title: string;
+};
+
+type PublishedState = {
+  kind: "published";
+  url: string;
+};</code></pre>
+          <p>这里还没有联合；只是两个独立对象类型。下一步用竖线把它们组成“草稿或已发布”的有限集合。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：候选集合如何随控制流变化</h2>
+
+          <h3>1. 联合类型表示候选之一，不是同时拥有两边</h3>
+          <pre><code>export function demoIdentifier(): string {
+  function formatIdentifier(id: string | number): string {
+    if (typeof id === "string") {
+      return id.toUpperCase();
+    }
+
+    return id.toFixed(0);
+  }
+
+  return formatIdentifier("n1");
+}</code></pre>
+          <p><code>string | number</code> 表示一次调用中的值要么是字符串，要么是数字。进入函数时还不知道是哪一个，所以不能直接调用只属于字符串的 <code>toUpperCase()</code>。联合不是交叉：它不会让一个值同时拥有两种类型的全部成员。</p>
+
+          <h3>2. 收窄依赖真实运行时检查</h3>
+          <p><code>typeof id === "string"</code> 会在运行时产生布尔值；TypeScript 同时把真分支中的候选从 <code>string | number</code> 缩小为 <code>string</code>。真分支已经 <code>return</code> 后，后续路径只剩 <code>number</code>：</p>
+          <ol>
+            <li>函数入口：<code>id</code> 可能是 string 或 number。</li>
+            <li>真分支：检查证明它是 string，可以调用字符串方法。</li>
+            <li>真分支返回：该路径结束。</li>
+            <li>剩余路径：string 已排除，只能是 number。</li>
+          </ol>
+          <p>这叫控制流分析。标注没有改变；编译器根据已经发生的检查、返回与赋值，在不同代码位置维护更精确的当前类型。</p>
+
+          <h3>3. 数组用 <code>Array.isArray</code> 收窄</h3>
+          <pre><code>export function demoTermCount(): number {
+  function countSearchTerms(value: string | string[]): number {
+    if (Array.isArray(value)) {
+      return value.length;
+    }
+
+    return value.trim().length &gt; 0 ? 1 : 0;
+  }
+
+  return countSearchTerms(["typescript", "node"]);
+}</code></pre>
+          <p><code>typeof []</code> 在 JavaScript 中是 <code>"object"</code>，不能区分普通对象与数组。<code>Array.isArray(value)</code> 才是平台提供的数组检查，TypeScript 能把真分支收窄为 <code>string[]</code>。</p>
+
+          <h3>4. 对象变体可以用 <code>in</code> 检查成员</h3>
+          <pre><code>type NotePointer =
+  | { id: string }
+  | { index: number };
+
+export function demoPointer(): string {
+  function formatPointer(pointer: NotePointer): string {
+    if ("id" in pointer) {
+      return `id:${pointer.id}`;
+    }
+
+    return `index:${pointer.index}`;
+  }
+
+  return formatPointer({ id: "n1" });
+}</code></pre>
+          <p><code>"id" in pointer</code> 是真实 JavaScript 属性检查。真分支保留包含 <code>id</code> 的成员，假分支只剩包含 <code>index</code> 的成员。若属性在某个成员中是可选的，它可能同时出现在真假两侧，所以不要把可选属性当作最稳定的判别字段。</p>
+
+          <h3>5. 判别联合给每个成员相同的字面量字段</h3>
+          <pre><code>type NoteLookup =
+  | { found: true; title: string }
+  | { found: false };
+
+export function demoLookup(): string {
+  function describeLookup(result: NoteLookup): string {
+    if (result.found) {
+      return `Found:${result.title}`;
+    }
+
+    return "Not found";
+  }
+
+  return describeLookup({ found: true, title: "TypeScript" });
+}</code></pre>
+          <p>两个成员都有 <code>found</code>，但值分别固定为 <code>true</code> 和 <code>false</code>。检查该字段后，TypeScript 知道真分支一定有 <code>title</code>。这种共同的字面量字段叫 discriminant；整个联合叫 discriminated union。</p>
+
+          <h3>6. 判别字段把每个 payload 与自己的命令绑定</h3>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>命令成员</th><th>判别字段</th><th>该成员独有数据</th></tr></thead>
+              <tbody>
+                <tr><td>add</td><td><code>kind: "add"</code></td><td><code>title: string</code></td></tr>
+                <tr><td>list</td><td><code>kind: "list"</code></td><td>无</td></tr>
+                <tr><td>show</td><td><code>kind: "show"</code></td><td><code>id: string</code></td></tr>
+                <tr><td>search</td><td><code>kind: "search"</code></td><td><code>query: string</code></td></tr>
+                <tr><td>archive</td><td><code>kind: "archive"</code></td><td><code>id: string</code></td></tr>
+                <tr><td>import</td><td><code>kind: "import"</code></td><td><code>path: string</code></td></tr>
+                <tr><td>export</td><td><code>kind: "export"</code></td><td><code>path: string</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>这里的 payload 不是名为 <code>payload</code> 的属性，而是“执行该命令所需数据”的统称：add 需要 title，show 需要 id，search 需要 query，list 则不需要额外数据。“绑定”表示把 kind 与这些必需字段之间的关系写进类型。</p>
+
+          <h4>一个全是可选字段的对象没有建立关系</h4>
+          <pre><code>type LooseCommand = {
+  kind: "add" | "list" | "show";
+  title?: string;
+  id?: string;
+};
+
+export function demoLooseCommandProblem(): string {
+  const invalid: LooseCommand = {
+    kind: "show",
+  };
+
+  return invalid.kind;
+}</code></pre>
+          <p>这个对象能通过类型检查，因为 <code>id?</code> 允许 id 缺少。kind 的值虽然是 show，却没有任何规则要求 show 必须同时拥有 id；同样也能写出带 id、却缺少 title 的 add 命令。</p>
+
+          <h4>联合的每一行都是一个不可拆散的完整候选</h4>
+          <pre><code>type BoundCommand =
+  | { kind: "add"; title: string }
+  | { kind: "list" }
+  | { kind: "show"; id: string };
+
+export function demoBoundCommand(): string {
+  function describeBoundCommand(command: BoundCommand): string {
+    switch (command.kind) {
+      case "add":
+        return `add:${command.title}`;
+      case "list":
+        return "list";
+      case "show":
+        return `show:${command.id}`;
+    }
+  }
+
+  return describeBoundCommand({ kind: "show", id: "n1" });
+}
+
+// const invalid: BoundCommand = { kind: "show" };
+// 类型错误：show 成员必须同时提供 id。</code></pre>
+          <ol>
+            <li>创建对象时，<code>kind: "show"</code> 只能匹配联合中的 show 成员。</li>
+            <li>show 成员同时要求 <code>id: string</code>，所以缺少 id 的对象无法完成赋值。</li>
+            <li>函数入口仍有三个候选，只能安全读取它们共同拥有的 kind。</li>
+            <li>进入 <code>case "show"</code> 后，add 与 list 被排除，只剩带 id 的 show 成员，因此可以直接读取 <code>command.id</code>。</li>
+          </ol>
+          <p>运行时仍然只是普通对象、字符串比较和属性读取；类型不会创建隐藏连接，也不会验证 JSON 等外部输入。对于直接书写的对象字面量，编译器还会报告与当前成员无关的多余 payload；真正的运行时边界会在第 08 课处理。</p>
+
+          <h3>7. <code>switch</code> 会按判别字段逐分支收窄</h3>
+          <pre><code>type SaveState =
+  | { kind: "idle" }
+  | { kind: "saved"; path: string }
+  | { kind: "failed"; message: string };
+
+export function demoSaveState(): string[] {
+  function describeSaveState(state: SaveState): string {
+    switch (state.kind) {
+      case "idle":
+        return "Idle";
+      case "saved":
+        return `Saved:${state.path}`;
+      case "failed":
+        return `Failed:${state.message}`;
+      default:
+        return assertNever(state);
+    }
+  }
+
+  return [
+    describeSaveState({ kind: "saved", path: "notes.json" }),
+    describeSaveState({ kind: "idle" }),
+    describeSaveState({ kind: "failed", message: "offline" }),
+  ];
+}</code></pre>
+          <p>每个 <code>case</code> 都排除其他字面量成员，所以可以安全读取该成员独有的字段。分支直接返回后不会发生 fall-through；本项目同时启用了 <code>noFallthroughCasesInSwitch</code>。</p>
+          <p>一次运行依次观察 saved、idle、failed。尝试在 SaveState 中增加 saving 成员，并检查下方 assertNever(state) 的诊断。</p>
+          <h3>8. <code>never</code> 表示已经没有可能值</h3>
+          <pre><code>function assertNever(value: never): never {
+  throw new Error(`Unexpected value: ${JSON.stringify(value)}`);
+}</code></pre>
+          <p>在全部 <code>case</code> 都处理完后，<code>state</code> 的所有联合成员已被排除，因此默认分支中的类型是 <code>never</code>。<code>assertNever</code> 只接受 never，也永远不会正常返回。</p>
+          <p>收窄由 switch 的控制流分析完成；<code>never</code> 是检查遗漏的报警器，不是负责收窄的东西。下面的编译错误是在保留 <code>assertNever(state)</code> 及其 never 参数约束时发生的。</p>
+          <p>以后若给 <code>SaveState</code> 新增 <code>{ kind: "saving" }</code> 却忘记更新 switch，默认分支中的 <code>state</code> 就会是新成员而不是 never，于是调用 <code>assertNever(state)</code> 在编译时失败。这把“记得更新每个分支”变成可验证契约。</p>
+
+          <div class="callout"><strong>设计顺序：</strong>先列出真实互斥状态，为每个成员选择稳定的共同字面量字段，再在控制流中检查该字段。不要先写大量 <code>as</code> 断言；如果每个分支都需要断言，通常是联合形状缺少可靠判别。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>多个候选</td><td>sealed hierarchy、重载、共同接口</td><td>Union、类层次、运行时鸭子类型</td><td><code>A | B</code> 联合</td></tr>
+                <tr><td>运行时区分</td><td>instanceof、pattern switch</td><td>isinstance、match、属性检查</td><td>typeof、Array.isArray、in、判别字段</td></tr>
+                <tr><td>互斥状态</td><td>sealed interface + records</td><td>dataclass/TypedDict + Literal</td><td>判别联合对象</td></tr>
+                <tr><td>穷尽检查</td><td>sealed switch 可检查</td><td>静态工具能力取决于类型模型</td><td><code>never</code> 锁定未处理成员</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Java 开发者可以把判别联合理解为无需类层次的 sealed variants；Python 开发者可以把它理解为由 Literal 字段标记的 Union。不同点仍是：TypeScript 类型会擦除，运行时真正发生的是普通属性读取和条件分支。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：共同操作不一定需要分支</h3>
+            <pre><code>export function demoKeyString(): string {
+  function stringifyKey(key: string | number): string {
+    return String(key);
+  }
+
+  return stringifyKey(7);
+}</code></pre>
+            <p><code>String(value)</code> 接受两种候选，因此不必为了使用联合而强行分支。只有操作依赖某个成员独有能力时才收窄。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：提前返回让剩余路径更精确</h3>
+            <pre><code>export function demoQuery(): string[] {
+  function normalizeQuery(query: string | string[]): string[] {
+    if (Array.isArray(query)) {
+      return query.map((item) =&gt; item.trim());
+    }
+
+    return [query.trim()];
+  }
+
+  return normalizeQuery(" typescript ");
+}</code></pre>
+            <p>真分支直接返回数组转换结果；剩余路径自动排除数组，只处理一个字符串。无需额外 else 或类型断言。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：布尔判别字段绑定成功数据</h3>
+            <pre><code>type ParseCountResult =
+  | { ok: true; value: number }
+  | { ok: false; message: string };
+
+export function demoParseCount(): string {
+  function formatParseCount(result: ParseCountResult): string {
+    if (result.ok) {
+      return `Count:${result.value}`;
+    }
+
+    return `Error:${result.message}`;
+  }
+
+  return formatParseCount({ ok: true, value: 2 });
+}</code></pre>
+            <p>成功成员一定有 value，失败成员一定有 message，不会出现 <code>ok: true</code> 却缺少结果的对象。完整的 Result 错误传播会在第 16 课建立。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 07</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>未收窄就访问成员独有属性。</strong> 联合位置只保证所有候选都拥有的能力。</li>
+            <li><strong>把 <code>|</code> 当成同时满足两边。</strong> 联合表示候选之一；同时满足属于后续的交叉类型。</li>
+            <li><strong>用可选字段拼出互斥状态。</strong> 它会允许缺 payload 或多个 payload 同时存在。</li>
+            <li><strong>用 <code>as</code> 告诉编译器当前成员。</strong> 优先用真实运行时检查，让控制流提供证据。</li>
+            <li><strong>写了 switch 却没有穷尽检查。</strong> 新增联合成员时旧代码可能静默漏分支。</li>
+            <li><strong>把 <code>never</code> 理解成 undefined。</strong> never 表示根本没有可出现的值，不是某个空值。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入空值与未知边界前，你应当能够：</p>
+          <ul>
+            <li>读写基础联合与多行对象联合，并说明每个成员的合法值。</li>
+            <li>在未收窄位置识别所有成员共同支持的操作。</li>
+            <li>选择 typeof、Array.isArray、in 或判别字段提供真实运行时证据。</li>
+            <li>根据分支、提前返回和 switch 预测当前变量的收窄结果。</li>
+            <li>设计不允许无效状态的判别联合，并用 never 锁定穷尽处理。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types">TypeScript Handbook: Union Types</a>：联合成员与共同操作。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html">TypeScript Handbook: Narrowing</a>：typeof、in、控制流分析、判别联合与 never。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html#exhaustiveness-checking">TypeScript Handbook: Exhaustiveness checking</a>：用 never 发现新增但未处理的成员。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 07：穷尽描述 Developer Notes 命令</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-07.ts</code>，把本课示例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>导出 <code>NoteCommand</code> 类型和 <code>describeCommand(command: NoteCommand): string</code>。另写一个不导出的 <code>assertNever(value: never): never</code>，在 switch 默认分支中调用。</p>
+
+            <h3><code>NoteCommand</code> 的七个精确成员</h3>
+            <div class="table-scroll">
+              <table class="comparison-table">
+                <thead><tr><th>kind</th><th>完整成员</th><th>返回字符串</th></tr></thead>
+                <tbody>
+                  <tr><td>add</td><td><code>{ kind: "add"; title: string }</code></td><td><code>add:${title}</code></td></tr>
+                  <tr><td>list</td><td><code>{ kind: "list" }</code></td><td><code>list</code></td></tr>
+                  <tr><td>show</td><td><code>{ kind: "show"; id: string }</code></td><td><code>show:${id}</code></td></tr>
+                  <tr><td>search</td><td><code>{ kind: "search"; query: string }</code></td><td><code>search:${query}</code></td></tr>
+                  <tr><td>archive</td><td><code>{ kind: "archive"; id: string }</code></td><td><code>archive:${id}</code></td></tr>
+                  <tr><td>import</td><td><code>{ kind: "import"; path: string }</code></td><td><code>import:${path}</code></td></tr>
+                  <tr><td>export</td><td><code>{ kind: "export"; path: string }</code></td><td><code>export:${path}</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3><code>describeCommand</code> 必须按什么规则工作</h3>
+            <ol>
+              <li>使用 <code>switch (command.kind)</code>，为七个字面量分别写 case。</li>
+              <li>每个 case 只读取当前成员拥有的 payload，并立即返回表格中的精确字符串。</li>
+              <li>不要清理、改写或验证 payload；本课只训练类型分支。</li>
+              <li>default 调用 <code>assertNever(command)</code>，让新增成员未处理时无法通过类型检查。</li>
+            </ol>
+
+            <h3>完成条件</h3>
+            <ul>
+              <li>七种合法命令都有精确运行结果。</li>
+              <li>无效 kind、缺少必需 payload、错误 payload 类型和多余 payload 都被拒绝。</li>
+              <li>每个 case 内无需类型断言即可读取独有字段。</li>
+              <li>完整答案加入第八个成员但不加 case 时，<code>assertNever(command)</code> 必须产生编译错误。</li>
+            </ul>
+          </div>
+          <p>本课只把命令建模并输出可观察描述，不解析终端参数、不执行命令、不读写文件。真正 CLI 协议在第 19 课实现。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先写完整联合</summary>
+            <div class="details-body"><p>每行以竖线开头写一个对象成员，所有成员都用 <code>kind</code>，再只添加该命令需要的 title、id、query 或 path。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 让 case 完成收窄</summary>
+            <div class="details-body"><p>进入 <code>case "show"</code> 后，command 已经是带 id 的 show 成员；直接返回 <code>`show:${command.id}`</code>，不要写 <code>as</code>。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 用 never 锁住默认分支</summary>
+            <div class="details-body"><p>辅助函数参数与返回值都标注为 never，函数体抛错。default 中写 <code>return assertNever(command)</code>。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>判别联合的所有成员都已处理后，默认分支中的值是什么类型？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>已无任何可能的联合成员，类型变为 never</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>仍有全部可能的联合成员，类型保持为原联合类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>export type NoteCommand =
+  | { kind: "add"; title: string }
+  | { kind: "list" }
+  | { kind: "show"; id: string }
+  | { kind: "search"; query: string }
+  | { kind: "archive"; id: string }
+  | { kind: "import"; path: string }
+  | { kind: "export"; path: string };
+
+function assertNever(value: never): never {
+  throw new Error(`Unexpected command: ${JSON.stringify(value)}`);
+}
+
+/** @lab */
+export function describeCommand(command: NoteCommand): string {
+  switch (command.kind) {
+    case "add":
+      return `add:${command.title}`;
+    case "list":
+      return "list";
+    case "show":
+      return `show:${command.id}`;
+    case "search":
+      return `search:${command.query}`;
+    case "archive":
+      return `archive:${command.id}`;
+    case "import":
+      return `import:${command.path}`;
+    case "export":
+      return `export:${command.path}`;
+    default:
+      return assertNever(command);
+  }
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1–8 行</dt><dd>七个对象成员共享 kind 字段；每个字面量 kind 与自己必需的 payload 绑定。</dd>
+                <dt>第 10–12 行</dt><dd>assertNever 只接受没有可能值的 never，并通过抛错保证返回类型也是 never。</dd>
+                <dt>第 14–30 行</dt><dd>switch 按 kind 收窄；每个 case 读取当前成员的独有字段并立即返回精确字符串。</dd>
+                <dt>第 31–32 行</dt><dd>全部成员处理后 command 是 never；新增成员而遗漏 case 时，这个调用会编译失败。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 07</code></pre>
+          <p>只验收 <code>NoteCommand</code> 与 <code>describeCommand</code>：覆盖七种运行结果和无效对象的静态拒绝。完整答案还会单独严格编译，确认 default 中 command 已收窄为 never。通过后请说明：新增 <code>kind: "remove"</code> 但不增加 case 时，错误为什么会出现在 assertNever 调用处？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0006-object-types-and-contracts.html">← 上一课：对象类型与契约</a>
+          <a href="0008-null-undefined-unknown-boundaries.html">下一课：空值与未知边界 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 07 · Unions and narrowing · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

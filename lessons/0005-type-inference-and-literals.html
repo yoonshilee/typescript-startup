@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 05 课：类型推断、显式标注、字面量拓宽与 as const。">
+    <title>第 05 课 · 类型推断与字面量</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/type-system.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 05 / 24</p>
+          <p class="lesson-meta">建议 80 分钟<br>推断与字面量<br>Lab 05</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 05</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>让编译器推断局部细节，让标注明确程序边界</h1>
+          <p class="lesson-lead">类型标注不是越多越安全。你将区分运行时值与静态类型，观察 <code>let</code>、<code>const</code> 和对象属性为什么得到不同精度的类型，并在确实需要保留字面量时使用 <code>as const</code>。</p>
+          <div class="callout"><strong>本课代码文件：</strong>把所有 TypeScript 练习依次放入 <code>src/lesson-05.ts</code>。可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>createDefaultListOptions()</code>，让返回对象的值与类型都精确保留默认状态和数量。</p>
+          <ul>
+            <li>从初始化值、参数位置和返回表达式预测 TypeScript 的推断结果。</li>
+            <li>解释显式标注是在约束赋值，不是在转换运行时数据。</li>
+            <li>区分字面量类型、拓宽后的基本类型与对象属性的可变性。</li>
+            <li>说明 <code>as const</code> 改变了哪些静态事实，以及它没有改变什么。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 45 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：JavaScript 保存值，TypeScript 在运行前检查</h2>
+          <p>前四课已经反复使用 <code>: string</code>、<code>: number</code> 和 <code>: boolean</code>。这些标注不会生成新的 JavaScript 值，也不会在 Node 运行时替你转换输入：</p>
+          <pre><code>export function demoIncrement(): number {
+  function increment(count: number): number {
+    return count + 1;
+  }
+
+  return increment(2);
+}
+
+// increment("3") 写在案例内部时仍会产生类型错误。</code></pre>
+          <p>运行时只有传入的值、加法与返回结果。类型检查器在运行前证明“这里应该是 number”。本课关注的推断，就是编译器在你没有写全标注时如何得到这些静态事实。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：类型信息从哪里来，为什么会拓宽</h2>
+
+          <h3>1. 推断从已有证据补全类型</h3>
+          <p>变量有初始化值时，TypeScript 通常不需要你重复写同一个事实。函数返回类型也可以从所有 <code>return</code> 表达式得到：</p>
+          <pre><code>export function inferLocalValues() {
+  const title = "Release notes";
+  const count = 2;
+  const visible = true;
+
+  return `${title}:${count}:${visible}`;
+}</code></pre>
+          <p>编辑器会分别显示 <code>title</code>、<code>count</code>、<code>visible</code> 和函数返回值的类型。Node 运行这段代码时不会保留这些类型；推断只减少重复标注，不改变 JavaScript 行为。</p>
+
+          <h3>2. 显式标注约束允许赋入的值</h3>
+          <p>参数没有调用前的初始化值，因此公开函数参数通常需要标注。返回类型可以推断，也可以显式写出，用来固定边界并让意外改动尽早报错：</p>
+          <pre><code>export function demoFormatAttempt(): string {
+  function formatAttempt(attempt: number): string {
+    const nextAttempt = attempt + 1;
+    return `Attempt ${nextAttempt}`;
+  }
+
+  return formatAttempt(2);
+}</code></pre>
+          <p><code>attempt: number</code> 限制调用者，<code>: string</code> 限制实现返回字符串。局部变量 <code>nextAttempt</code> 已经有清楚的数字表达式，重复写 <code>: number</code> 没有增加信息。</p>
+
+          <h3>3. 字面量类型描述一个精确值</h3>
+          <p><code>string</code> 表示任意字符串；字面量类型 <code>"active"</code> 只表示这一个字符串值。TypeScript 会根据绑定是否允许重新赋值，选择保留精确值还是拓宽成更通用的类型：</p>
+          <pre><code>export function compareBindingInference() {
+  let changingStatus = "active"; // string
+  const fixedStatus = "active";  // "active"
+
+  changingStatus = "archived";
+  const annotatedStatus: string = fixedStatus;
+  return { fixedStatus, changingStatus, annotatedStatus };
+}</code></pre>
+          <p><code>let</code> 明确允许以后保存别的字符串，所以推断为 <code>string</code>。<code>const</code> 绑定不能重绑，保留 <code>"active"</code> 这个更精确的类型是安全的。两者最初的运行时值完全相同。</p>
+          <h4>显式宽类型会丢失精度</h4>
+
+            <p><code>fixedStatus</code> 是精确字面量 <code>"active"</code>，而显式标注把 <code>annotatedStatus</code> 固定为更宽的 <code>string</code>。标注不是天然“更严格”；写得过宽反而会丢失编译器本来能保留的信息。</p>
+
+          <h3>4. <code>const</code> 对象的属性仍然可变，所以属性会拓宽</h3>
+          <p><code>const</code> 固定的是变量 <code>options</code> 与对象之间的引用，不会固定对象属性。为了允许下一行合法赋值，<code>status</code> 通常会从 <code>"active"</code> 拓宽为 <code>string</code>：</p>
+          <pre><code>export function demoPropertyWidening(): string {
+  const options = { status: "active", limit: 20 };
+
+  options.status = "archived";
+  options.limit = 50;
+  return `${options.status}:${options.limit}`;
+}</code></pre>
+          <p>执行顺序是：创建对象，保存初始属性，再修改两个属性，最后返回 <code>"archived:50"</code>。如果属性类型仍是精确的 <code>"active"</code> 与 <code>20</code>，这些正常修改就会被错误拒绝，因此编译器主动拓宽。</p>
+
+          <h3>5. <code>as const</code> 明确要求保留字面量</h3>
+          <p>当数据表达固定协议、默认配置或命令常量时，可以在字面量表达式后写 <code>as const</code>：</p>
+          <pre><code>export function preserveDefaultOptions() {
+  const options = {
+    status: "active",
+    limit: 20,
+  } as const;
+
+  return options;
+}</code></pre>
+          <p>现在编译器把属性看成只读的精确值：<code>status</code> 是 <code>"active"</code>，<code>limit</code> 是 <code>20</code>。因此 <code>options.status = "archived"</code> 会在类型检查时报错。这里没有要求你手写对象类型；第 06 课才系统讲 <code>type</code>、<code>interface</code>、可选属性和 <code>readonly</code>。</p>
+
+          <h3>6. <code>as const</code> 不是运行时冻结</h3>
+          <p><code>as const</code> 是 const assertion，只影响类型检查，不会调用 <code>Object.freeze()</code>，也不会递归复制已经存在的引用。下面的数组先单独创建，再放进对象；它仍然是可修改的同一个数组：</p>
+          <pre><code>export function demoConstBoundary(): string[] {
+  const tags = ["typescript"];
+  const options = { tags } as const;
+
+  options.tags.push("node");
+  return tags; // ["typescript", "node"]
+}</code></pre>
+          <p><code>options.tags</code> 这个属性不能被重新指向另一个数组，但现有数组仍可通过 <code>push</code> 修改。这与第 04 课的浅复制边界一致：静态只读属性、运行时冻结和深度不可变是三件不同的事。</p>
+
+          <h3>7. 上下文也能提供推断证据</h3>
+          <p>推断不只看右侧初始化值。数组已经是 <code>string[]</code> 时，<code>map</code> 的回调参数会从调用位置得到 <code>string</code>，函数返回值则从 <code>map</code> 的结果得到 <code>string[]</code>：</p>
+          <pre><code>export function demoTagNormalization() {
+  function normalizeTags(tags: string[]) {
+    return tags.map((tag) =&gt; tag.trim().toLowerCase());
+  }
+
+  return normalizeTags([" TypeScript ", " Node "]);
+}</code></pre>
+          <p>这里无需给 <code>tag</code> 和函数返回值再次标注。若把回调独立放到没有上下文的位置，参数就需要自己的标注。后面的函数类型课程会系统解释这种“从使用位置反推”的上下文类型。</p>
+
+          <div class="callout"><strong>默认策略：</strong>参数和需要稳定承诺的公开边界写标注；有明确初始化值的局部变量优先让编译器推断；只有确实要保留精确字面量时才使用 <code>as const</code>。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>局部推断</td><td><code>var</code> 推断静态类型</td><td>名称运行时可绑定不同类型</td><td>从初始化值推断静态类型</td></tr>
+                <tr><td>显式标注</td><td>声明类型限制赋值</td><td>annotation 通常不由运行时强制</td><td>标注限制类型检查，不转换值</td></tr>
+                <tr><td>固定绑定</td><td><code>final</code> 阻止重新赋值</td><td>无语言级常量绑定</td><td><code>const</code> 阻止重新绑定</td></tr>
+                <tr><td>精确字面量</td><td>通常通过 enum/常量表达</td><td><code>Literal</code> 由类型检查器处理</td><td><code>"active"</code> 本身可以是类型</td></tr>
+                <tr><td>保留整组字面量</td><td>需显式类型设计</td><td>依赖类型工具与不可变约定</td><td>字面量表达式后使用 <code>as const</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Java 的 <code>var</code> 与 TypeScript 推断最接近：都是编译期确定静态类型，不等于 Python 名称可以在运行时绑定不同类型。TypeScript 特有的关键点是，它会根据未来可能的赋值把精确字面量拓宽。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：局部计算不需要重复标注</h3>
+            <pre><code>export function demoRemaining(): number {
+  function calculateRemaining(total: number, completed: number): number {
+    const remaining = total - completed;
+    return Math.max(remaining, 0);
+  }
+
+  return calculateRemaining(5, 2);
+}</code></pre>
+            <p>参数与公开返回承诺有标注；<code>remaining</code> 的类型从减法表达式得到。写成 <code>const remaining: number</code> 只是重复编译器已经知道的事实。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：数组字面量默认允许后续追加</h3>
+            <pre><code>export function buildMutableTags(): string[] {
+  const tags = ["typescript", "node"];
+  tags.push("cli");
+  return tags;
+}</code></pre>
+            <p>变量本身是 <code>const</code>，数组内容仍可修改，因此元素会推断为通用的 <code>string</code>。对数组字面量使用 <code>as const</code> 会保留顺序、长度与每个精确元素，并拒绝 <code>push</code>；本课 Lab 先用更简单的对象属性观察同一规则。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：<code>as const</code> 适合固定协议值</h3>
+            <pre><code>export function createFixedCommand() {
+  return {
+    command: "list",
+    format: "json",
+  } as const;
+}</code></pre>
+            <p>两个属性都是协议中的固定值，而不是随后要编辑的表单状态。这里保留字面量有明确目的；若对象确实要变化，就不应为了“类型更窄”强行添加 <code>as const</code>。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 05</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>给每个局部变量都写类型。</strong> 重复标注增加修改成本，也可能把本来精确的推断写宽。</li>
+            <li><strong>认为类型标注会转换值。</strong> <code>count: number</code> 不会把字符串 <code>"3"</code> 变成数字。</li>
+            <li><strong>把 <code>const</code> 当成对象不可变。</strong> 它只阻止变量重新绑定；对象属性和数组内容默认仍可变。</li>
+            <li><strong>把 <code>as const</code> 当成 <code>Object.freeze()</code>。</strong> const assertion 不生成运行时代码，也不验证外部数据。</li>
+            <li><strong>为了更窄的类型到处使用 <code>as const</code>。</strong> 真正需要修改的数据不该伪装成固定协议值。</li>
+            <li><strong>用 assertion 掩盖不确定输入。</strong> 外部 JSON 与用户输入需要运行时校验；<code>as const</code> 不能证明它们可信。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入对象类型建模前，你应当能够：</p>
+          <ul>
+            <li>分别预测初始化变量、函数参数、返回表达式和回调参数的类型信息来源。</li>
+            <li>解释为什么局部推断通常比重复显式标注更清楚。</li>
+            <li>区分 <code>"active"</code>、<code>string</code>、<code>const</code> 绑定和可变对象属性。</li>
+            <li>使用 <code>as const</code> 保留固定对象的字面量，并说明产生的只读检查。</li>
+            <li>证明 <code>as const</code> 不会执行运行时转换、校验或冻结。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html">TypeScript Handbook: Everyday Types</a>：变量标注、函数返回推断与 literal inference。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/type-inference.html">TypeScript Handbook: Type Inference</a>：初始化推断、best common type 与 contextual typing。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-4.html">TypeScript 3.4: const assertions</a>：<code>as const</code> 的三个效果与运行时边界。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 05：保留列表默认值的精确类型</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建或修改 <code>src/lesson-05.ts</code>，把本课示例、改写和 Lab 都保存在这里；已有实现可以继续改写，不必清空文件。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>在 <code>src/lesson-05.ts</code> 的示例函数后面导出并实现无参数函数 <code>createDefaultListOptions()</code>。这是本课唯一需要导出的 Lab API。不要为它手写返回类型，让 TypeScript 从返回表达式推断。</p>
+
+            <h3>返回值的精确内容</h3>
+            <div class="table-scroll">
+              <table class="comparison-table">
+                <thead><tr><th>属性</th><th>运行时值</th><th>验收要求的静态类型</th></tr></thead>
+                <tbody>
+                  <tr><td><code>status</code></td><td><code>"active"</code></td><td>精确字面量 <code>"active"</code></td></tr>
+                  <tr><td><code>limit</code></td><td><code>20</code></td><td>精确字面量 <code>20</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3><code>createDefaultListOptions</code> 必须按什么规则工作</h3>
+            <ol>
+              <li>不接收参数。</li>
+              <li>直接返回包含 <code>status</code> 和 <code>limit</code> 的对象字面量。</li>
+              <li>在整个对象字面量后使用一次 <code>as const</code>，不要分别断言两个属性。</li>
+              <li>不要添加额外属性、打印、输入读取或环境配置。</li>
+            </ol>
+
+            <h3>完成条件</h3>
+            <ul>
+              <li>运行时返回值精确等于 <code>{ status: "active", limit: 20 }</code>。</li>
+              <li>调用结果的 <code>status</code> 类型保留为 <code>"active"</code>，<code>limit</code> 类型保留为 <code>20</code>。</li>
+              <li>调用者不能通过类型检查重新给这两个属性赋值。</li>
+              <li>函数返回类型由编译器推断，不提前使用第 06 课的对象类型语法。</li>
+            </ul>
+          </div>
+          <p>自动验收同时检查运行时对象与编译期精度。它不会要求 <code>type</code>、<code>interface</code>、联合类型或 <code>satisfies</code>；这些概念会在后续课程先讲解、再练习。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先写无参数函数</summary>
+            <div class="details-body"><p>先写 <code>export function createDefaultListOptions() {}</code>。本课刻意省略返回类型，让返回表达式提供推断证据。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 返回精确对象</summary>
+            <div class="details-body"><p>函数体只需要返回 <code>{ status: "active", limit: 20 }</code>。先确认两个属性名、值与大小写完全一致。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 阻止属性拓宽</summary>
+            <div class="details-body"><p>普通可变对象会把属性拓宽为 <code>string</code> 和 <code>number</code>。在右花括号后、分号前加一次 <code>as const</code>。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>对象字面量后写 <code>as const</code>，<code>status</code> 属性会怎样？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>属性保留为字面量并禁止重新赋值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>属性拓宽成字符串并允许重新赋值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>/** @lab */
+export function createDefaultListOptions() {
+  return {
+    status: "active",
+    limit: 20,
+  } as const;
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1 行</dt><dd>导出无参数函数供验收导入；没有写返回类型，编译器将从函数体推断。</dd>
+                <dt>第 2–5 行</dt><dd>创建并返回对象字面量；<code>as const</code> 阻止属性从 <code>"active"</code> 与 <code>20</code> 拓宽，并让属性不能被重新赋值。</dd>
+                <dt>第 6 行</dt><dd>右花括号结束函数体。运行时返回的仍是普通 JavaScript 对象，没有自动冻结。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 05</code></pre>
+          <p>只验收本课 Lab 导出的 <code>createDefaultListOptions</code>：检查精确对象内容、无参数调用、两个字面量类型和只读赋值错误。通过后请解释：为什么只写 <code>const options = { status: "active", limit: 20 }</code> 仍不足以保留属性字面量？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0004-collections-and-immutability.html">← 上一课：集合与不可变更新</a>
+          <a href="0006-object-types-and-contracts.html">下一课：对象类型与契约 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 05 · Inference and literals · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

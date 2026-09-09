@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="TypeScript 类型推断、结构类型、联合类型与工具类型速查。">
+    <title>Reference · TypeScript 类型系统</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#reference">跳到速查正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="参考页导航">
+        <a class="context-link" href="../index.html#references">全部速查</a>
+        <a class="context-link" href="../index.html#route">24 课</a>
+      </nav>
+    </header>
+    <main id="reference" class="reference-shell">
+      <header class="reference-header">
+        <h1>TypeScript 类型系统速查</h1>
+        <p>类型描述可接受值与值之间的关系；它们在运行前服务于检查器，并在执行前被移除。</p>
+        <p class="print-note">REFERENCE 03 / 06 · 第 05–12 课配套</p>
+      </header>
+
+      <section>
+        <h2>先推断，边界再标注</h2>
+        <pre><code>const title = "Release"; // inferred as "Release"
+let status = "active";   // inferred as string
+
+function archive(id: string): boolean {
+  return id.length &gt; 0;
+}</code></pre>
+        <p>局部值通常让编译器推断；函数参数、公开返回契约和数据边界显式标注。标注太多会重复信息，标注太少会让公开接口含糊。</p>
+      </section>
+
+      <section>
+        <h2>保留字面量精度</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>工具</th><th>用途</th><th>边界</th></tr></thead>
+            <tbody>
+              <tr><td><code>as const</code></td><td>把表达式推断为只读、精确字面量</td><td>是静态约束，不冻结运行时对象</td></tr>
+              <tr><td><code>satisfies</code></td><td>检查表达式满足目标类型，同时保留自身精度</td><td>不进行运行时校验</td></tr>
+              <tr><td>显式标注</td><td>把变量或返回值限制在某个公开类型</td><td>可能主动拓宽局部精度</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>对象形状</h2>
+        <pre><code>type NoteStatus = "active" | "archived";
+
+interface Note {
+  readonly id: string;
+  title: string;
+  body?: string;
+  status: NoteStatus;
+}</code></pre>
+        <ul>
+          <li>可选属性 <code>body?</code> 表示属性可能不存在；它不等于必须存在但值可为 undefined。</li>
+          <li><code>readonly</code> 阻止通过该类型位置赋值，是浅层静态约束，不是 <code>Object.freeze</code>。</li>
+          <li>TypeScript 主要按结构判断兼容：成员足够即可，不要求声明名相同。</li>
+          <li><code>type</code> 擅长联合、交叉和类型表达式；<code>interface</code> 擅长命名对象契约。不要为风格战争来回转换。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>联合与交叉</h2>
+        <pre><code>type LoadState =
+  | { kind: "idle" }
+  | { kind: "loaded"; count: number }
+  | { kind: "failed"; message: string };
+
+type Timestamped = { createdAt: string };
+type SavedNote = Note &amp; Timestamped;</code></pre>
+        <p>联合 <code>A | B</code> 表示值属于候选之一；交叉 <code>A &amp; B</code> 要同时满足两边。复杂状态优先判别联合，不用一组互相矛盾的 optional boolean。</p>
+      </section>
+
+      <section>
+        <h2>关键类型</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>类型</th><th>含义</th><th>默认态度</th></tr></thead>
+            <tbody>
+              <tr><td><code>unknown</code></td><td>值存在但尚未验证</td><td>边界默认，用检查收窄</td></tr>
+              <tr><td><code>any</code></td><td>基本退出类型检查</td><td>避免；迁移时局部隔离</td></tr>
+              <tr><td><code>never</code></td><td>没有可能值</td><td>穷尽分支与不会返回的函数</td></tr>
+              <tr><td><code>null</code></td><td>显式空值</td><td>放入联合才允许</td></tr>
+              <tr><td><code>undefined</code></td><td>缺失/未提供</td><td>索引、可选属性与无返回处常见</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>常用工具类型</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>类型</th><th>作用</th><th>示例</th></tr></thead>
+            <tbody>
+              <tr><td><code>Partial&lt;T&gt;</code></td><td>所有属性变可选</td><td>局部更新输入</td></tr>
+              <tr><td><code>Required&lt;T&gt;</code></td><td>所有属性变必需</td><td>规范化后的内部模型</td></tr>
+              <tr><td><code>Readonly&lt;T&gt;</code></td><td>所有属性变只读</td><td>只读视图</td></tr>
+              <tr><td><code>Pick&lt;T, K&gt;</code></td><td>选出部分属性</td><td>列表摘要</td></tr>
+              <tr><td><code>Omit&lt;T, K&gt;</code></td><td>排除部分属性</td><td>创建前输入</td></tr>
+              <tr><td><code>Record&lt;K, V&gt;</code></td><td>键集合映射到值</td><td>固定状态到标签</td></tr>
+              <tr><td><code>ReturnType&lt;F&gt;</code></td><td>取得函数返回类型</td><td>从既有函数派生</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>工具类型用于表达真实关系，不用于隐藏简单对象。能直接读懂的五行对象类型通常比嵌套类型运算更好。</p>
+      </section>
+
+      <section>
+        <h2>静态测试</h2>
+        <pre><code>// @ts-expect-error — number must remain rejected.
+archive(42);</code></pre>
+        <p><code>@ts-expect-error</code> 只有下一行确实产生类型错误时才通过，因此可用于锁定“错误调用必须被拒绝”的负面契约。不要用它压住未理解的错误。</p>
+      </section>
+    </main>
+    <footer class="foot-line"><p>Reference 03 · Type System · Typescript-Startup</p></footer>
+  </body>
+</html>

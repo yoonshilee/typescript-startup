@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="TypeScript 第 21 课：Web/API 边界与 unknown 运行时校验。"><title>Lesson 21 · Web/API 边界与 unknown 运行时校验</title><link rel="stylesheet" href="../assets/course.css?v=4"></head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a><header class="topbar"><a class="brand" href="../index.html">Typescript-Startup</a><nav aria-label="课程导航"><a href="../index.html#route">课程目录</a><a href="../reference/narrowing-and-generics.html">本课速查</a></nav></header>
+    <main class="lesson-layout">
+      <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 21 / 24</p><p>建议 100 分钟</p><p>类型不能校验网络</p><p>Lab 21</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
+      <article id="lesson" class="lesson-paper">
+        <header class="lesson-title"><p class="eyebrow">UNKNOWN · JSON · STRUCTURAL VALIDATION</p><h1>外部数据先是 unknown，通过证据后才是领域对象</h1><p class="lead">HTTP 响应、JSON 文件、环境变量和用户输入不会因为写了 TypeScript 类型就改变。类型断言只改变编译器判断；运行时校验必须逐层证明容器、字段与元素满足契约。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-21.ts</code>。安全实验是顶层零参数导出函数；解析 unknown 的 Lab 用 <code>/** @lab */</code> 标记，危险断言案例用 <code>/** @example-skip */</code>。</div></header>
+
+        <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>parseApiNote(value)</code>，验证非空对象、id、title 与字符串 tags，并返回拥有独立 tags 数组的 ApiNote。</p><ul><li>理解 JSON.parse 与 response.json 的结果应视作 unknown。</li><li>按容器 → 属性 → 元素顺序收窄。</li><li>区分检查事实与类型断言。</li><li>在信任边界拒绝损坏数据，不让错误扩散进领域层。</li></ul></section>
+
+        <section id="recall" class="lesson-section"><h2>前置回忆：catch 从 unknown 开始</h2><pre><code>export function demoUnknownValue(): string {
+  const value: unknown = JSON.parse("42");
+  return typeof value;
+}</code></pre><p>第 16 课对错误值先收窄；外部数据同理。JSON 语法正确只说明能产生 JavaScript 值，不说明它是 Note。</p></section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：每次访问都要有前置证据</h2>
+          <h3>1. typeof null 也是 object</h3><pre><code>export function demoObjectCheck(): boolean[] {
+  const values: unknown[] = [null, [], {}];
+  return values.map((value) =&gt;
+    typeof value === "object" &amp;&amp; value !== null &amp;&amp; !Array.isArray(value)
+  );
+}</code></pre><p>结果是 [false, false, true]。对象检查必须排除 null 与数组，之后才能把它当作键值容器继续检查。</p>
+
+          <h3>2. 属性存在不代表类型正确</h3><pre><code>export function demoPropertyEvidence(): boolean {
+  const value: Record&lt;string, unknown&gt; = { title: 42 };
+  return typeof value.title === "string";
+}</code></pre><p>结果 false。结构化类型在编译期工作，运行时需要逐字段 typeof、Array.isArray 或更具体谓词。</p>
+
+          <h3>3. 数组还要检查每个元素</h3><pre><code>export function demoArrayElements(): boolean {
+  const tags: unknown = ["ts", 24];
+  return Array.isArray(tags) &amp;&amp;
+    tags.every((tag) =&gt; typeof tag === "string");
+}</code></pre><p>Array.isArray 只证明容器；every 才证明元素。空数组会通过 every，正符合“所有元素都是字符串”。</p>
+
+          <h3>4. 断言不会产生运行时保护</h3><pre><code>/** @example-skip */
+function demoUnsafeAssertion(): string {
+  const value: unknown = { title: 42 };
+  return (value as { title: string }).title.toUpperCase();
+}</code></pre><p>这会在运行时抛错，因此故意不导出并标记跳过。<code>as</code> 没检查 42，也没转换它；它只是要求编译器相信作者。</p>
+
+          <h3>5. 校验后复制边界集合</h3><pre><code>export function demoBoundaryCopy() {
+  const source = { id: "n1", title: "Draft", tags: ["ts"], debug: true };
+  // Assume these fields have passed the checks above.
+  const { id, title, tags } = source;
+  const accepted = { id, title, tags: [...tags] };
+  source.tags.push("node");
+  return { accepted, isolated: accepted.tags.length === 1 };
+}</code></pre>
+          <p>复制 tags 防止外部对象在解析后继续改变领域值。冻结整个对象不是本课要求，只需不共享可变数组引用。</p>
+          <p>accepted 只含 id、title、tags；debug 未被带入，原数组追加 node 后 accepted.tags 仍只有 ts。</p>
+          <h4>解析结果重新构造</h4><p>只把已验证字段带入领域对象，额外外部字段不会悄悄扩散。</p>
+
+          <div class="callout"><strong>证明链：</strong>unknown → 非空普通对象 → 字段存在且类型正确 → 数组元素正确 → 新领域对象。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section"><h2>Java / Python 对照</h2><div class="table-scroll"><table class="comparison-table"><thead><tr><th>边界</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead><tbody><tr><td>反序列化结果</td><td>DTO + mapper 校验</td><td>dict/validator</td><td>unknown</td></tr><tr><td>容器检查</td><td>instanceof / schema</td><td>isinstance</td><td>typeof + null + Array.isArray</td></tr><tr><td>断言/强转</td><td>可能 ClassCastException</td><td>typing.cast 无运行时校验</td><td>as 无运行时校验</td></tr><tr><td>领域入口</td><td>validated DTO</td><td>validated model</td><td>parser/type guard</td></tr></tbody></table></div></section>
+
+        <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
+          <div class="example"><h3>示例 A：hasOwn 区分自有字段</h3><pre><code>export function demoOwnProperty(): boolean {
+  const value = Object.create({ id: "inherited" }) as object;
+  return Object.hasOwn(value, "id");
+}</code></pre><p>结果 false；边界对象通常只接受自身 JSON 字段，不依赖原型链。</p></div>
+
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 21</code></pre><p>危险断言案例因 <code>/** @example-skip */</code> 保持不可运行；参数化 Lab 因 <code>/** @lab */</code> 排除。</p></div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>给 response.json 标注 ApiNote。</strong>标注不能改变服务器响应。</li><li><strong>只检查 typeof object。</strong>null 与数组也会混入。</li><li><strong>只检查 tags 是数组。</strong>元素仍可能是数字或对象。</li><li><strong>用 as 跳过检查。</strong>错误只会推迟到更远处爆炸。</li><li><strong>返回原始外部对象。</strong>额外字段与共享引用继续越过边界。</li><li><strong>错误消息依赖完整 JSON。</strong>可能泄露大体积或敏感数据。</li></ul></section>
+
+        <section id="contract" class="lesson-section"><h2>Learning Contract</h2><p>进入版本化文件前，你应能从 unknown 开始为每次属性访问提供运行时证据，解释类型断言为何不是校验，并把已验证数据重新构造成领域对象。</p></section>
+
+        <section id="sources" class="lesson-section"><h2>官方资料</h2><ul><li><a href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html">TypeScript Narrowing</a>：typeof、控制流与用户定义谓词。</li><li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray">MDN Array.isArray</a>：数组品牌检查。</li><li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwn">MDN Object.hasOwn</a>：自有属性检查。</li><li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Response/json">MDN Response.json</a>：JSON 响应解析。</li></ul></section>
+
+        <section id="lab" class="lesson-section lab-section"><h2>Lab 21：把 API unknown 解析成 Note</h2><p><strong>由你创建或修改：</strong>创建 <code>src/lesson-21.ts</code>，保存安全案例、跳过案例、ApiNote 与 Lab。</p><p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与课程脚本。</p>
+          <h3>你要交付什么</h3><pre><code>type ApiNote = {
+  readonly id: string;
+  readonly title: string;
+  readonly tags: readonly string[];
+};
+
+parseApiNote(value: unknown): ApiNote</code></pre>
+          <h3>运行规则</h3><ul><li>value 必须是非 null、非数组对象。</li><li>id 与 title 必须是非空白字符串。</li><li>tags 必须是数组，且每项都是字符串。</li><li>成功保留原 id/title 文本，复制 tags 后返回新对象。</li><li>任一检查失败抛出 <code>Error("Invalid API note")</code>。</li></ul>
+          <h3>实现限制</h3><p>从 unknown 逐层收窄；不要使用 any、as、非空断言、JSON stringify 比较或外部校验库。Lab 前保留 <code>/** @lab */</code>。</p>
+        </section>
+
+        <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 普通对象</summary><p>先检查 typeof、null 与 Array.isArray；通过后可用 <code>Record&lt;string, unknown&gt;</code> 的局部谓词辅助。</p></details><details><summary>提示 2 · 字段</summary><p>分别读取 id、title、tags，再一次判断所有条件。</p></details><details><summary>提示 3 · 返回</summary><p><code>{ id, title, tags: [...tags] }</code>。</p></details></section>
+
+        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="0"><fieldset><legend>unknown 何时能成为领域数据？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>unknown必须逐层检查结构后才进入领域类型</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>unknown可直接断言类型后进入领域数据使用</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+
+        <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>export type ApiNote = {
+  readonly id: string;
+  readonly title: string;
+  readonly tags: readonly string[];
+};
+
+/** @lab */
+export function parseApiNote(value: unknown): ApiNote {
+  function isRecord(input: unknown): input is Record&lt;string, unknown&gt; {
+    return typeof input === "object" &amp;&amp; input !== null &amp;&amp; !Array.isArray(input);
+  }
+
+  if (!isRecord(value)) throw new Error("Invalid API note");
+  const { id, title, tags } = value;
+  if (
+    typeof id !== "string" || !id.trim() ||
+    typeof title !== "string" || !title.trim() ||
+    !Array.isArray(tags) ||
+    !tags.every((tag) =&gt; typeof tag === "string")
+  ) {
+    throw new Error("Invalid API note");
+  }
+  return { id, title, tags: [...tags] };
+}</code></pre><dl class="line-notes"><dt>局部 isRecord</dt><dd>只服务 Lab，在函数内部建立可读取字符串键的证据。</dd><dt>字段检查</dt><dd>分别证明文本、非空约束、数组与元素。</dd><dt>失败</dt><dd>边界立即拒绝，不返回部分对象。</dd><dt>成功</dt><dd>只返回领域字段并复制集合。</dd></dl></div></details></section>
+
+        <section id="acceptance" class="lesson-section acceptance"><h2>自动验收</h2><pre><code>pnpm lesson 21
+pnpm examples 21</code></pre><p>验收覆盖 null、数组、缺字段、空白文本、混合 tags、额外字段、tags 引用隔离与静态只读契约。完成后请解释：为什么 <code>value as ApiNote</code> 无法替代这些测试？</p></section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航"><a href="0020-node-test-assert-temp-debug.html">← 上一课：测试</a><a href="0022-versioned-files-atomic-write-recovery.html">下一课：可靠持久化 →</a></nav>
+      </article>
+    </main><footer class="foot-line"><p>Typescript-Startup · Lesson 21 · Runtime Validation · Print-friendly HTML</p></footer><script src="../assets/course.js" defer></script>
+  </body>
+</html>

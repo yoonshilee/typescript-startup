@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 16 课：Error、unknown catch、Result、AbortSignal 与异步失败传播。">
+    <title>第 16 课 · Error、Result 与 AbortSignal</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/async-and-node-cli.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 16 / 24</p>
+          <p class="lesson-meta">建议 100 分钟<br>失败也有契约<br>Lab 16</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 16</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>失败要么沿异常通道传播，要么变成明确的数据</h1>
+          <p class="lesson-lead">JavaScript 可以 throw 任意值，Promise rejection 也不保证是 Error；边界代码应先把 unknown 变成可用错误。Result 把预期失败放进可判别联合，AbortSignal 则传递取消请求与原因，但只有观察 signal 的操作才会真正停止。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-16.ts</code>，异步案例由 runner await；带 loader 与 signal 的 Lab 前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现泛型 <code>captureLoadResult(load, signal)</code>：预先检查取消，把 signal 传入 loader，并把成功或任意拒绝规范化为 LoadResult。</p>
+          <ul>
+            <li>理解 throw / rejection 可以携带任意 JavaScript 值。</li>
+            <li>在 catch 中从 unknown 开始，用 instanceof Error 收窄。</li>
+            <li>用 Error cause 保留底层失败，同时增加上下文。</li>
+            <li>根据调用契约选择抛出异常或返回可判别 Result。</li>
+            <li>用 AbortController、reason、throwIfAborted 与 abort 事件协作取消。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 65 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：第 15 课的拒绝会沿 await 抛出</h2>
+          <pre><code>export async function demoAwaitedRejection(): Promise&lt;string&gt; {
+  try {
+    await Promise.reject(new Error("offline"));
+    return "unreachable";
+  } catch {
+    return "caught";
+  }
+}</code></pre>
+          <p>await 遇到 rejected Promise 时，在当前 async 函数的继续位置抛出 rejection reason。catch 能截获，但尚不知道捕获值是什么类型。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：保留原因、选择通道、协作取消</h2>
+
+          <h3>1. JavaScript 允许抛出任意值</h3>
+          <pre><code>export function demoThrownValues(): string[] {
+  const values: unknown[] = [
+    new Error("failed"),
+    "failed",
+    404,
+  ];
+  return values.map((value) =&gt; typeof value);
+}</code></pre>
+          <p>结果是 ["object", "string", "number"]。团队代码应优先 throw Error，但外部库、旧代码或 Promise 仍可能拒绝字符串、数字或对象，因此 catch 变量必须当作 unknown。</p>
+
+          <h3>2. 先收窄，再读取 message</h3>
+          <pre><code>export function demoUnknownCatch(): string {
+  try {
+    throw "missing";
+  } catch (error) {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return String(error);
+  }
+}</code></pre>
+          <p>不能直接写 error.message；instanceof 只覆盖真实 Error，其余值用 String 得到稳定的人类可读消息。规范化不应假装知道不存在的 stack 或 code。</p>
+
+          <h3>3. 一个小 helper 可以统一 unknown 错误边界</h3>
+          <pre><code>export function demoErrorNormalization(): string {
+  function toError(value: unknown): Error {
+    return value instanceof Error
+      ? value
+      : new Error(String(value));
+  }
+
+  return toError("offline").message;
+}</code></pre>
+          <p>真实 Error 保持同一对象，非 Error 才创建包装。Lab 使用同一规则，因此调用方总能安全读取 error.message，同时不会丢失已有 Error 的身份和 stack。</p>
+
+          <h3>4. Error cause 为增加上下文保留原原因</h3>
+          <pre><code>export function demoErrorCause(): boolean {
+  const original = new Error("ECONNREFUSED");
+  const wrapped = new Error("Loading note failed", {
+    cause: original,
+  });
+  return wrapped.cause === original;
+}</code></pre>
+          <p>cause 可以是任意值，不能盲目当成 Error。包装适合跨抽象层增加“正在做什么”；不要只复制 message 后丢掉原始原因。</p>
+
+          <h3>5. finally 用于释放资源，不用于覆盖返回或异常</h3>
+          <pre><code>export function demoFinally(): string[] {
+  const trace: string[] = [];
+  try {
+    trace.push("work");
+  } finally {
+    trace.push("cleanup");
+  }
+  return trace;
+}</code></pre>
+          <p>finally 无论成功或抛出都执行。不要在 finally 中 return 或 throw 新错误，它会覆盖原返回值或失败；第 22 课的原子文件写入会使用明确清理边界。</p>
+
+          <h3>6. Result 把预期失败变成普通数据</h3>
+          <pre><code>export function demoResult(): (string | number)[] {
+  type Result&lt;T&gt; =
+    | { readonly ok: true; readonly value: T }
+    | { readonly ok: false; readonly error: Error };
+
+  function describe(result: Result&lt;string&gt;): string {
+    if (!result.ok) {
+      return result.error.message;
+    }
+    return result.value;
+  }
+
+  const success: Result&lt;string&gt; = { ok: true, value: "Draft" };
+  const failure: Result&lt;string&gt; = { ok: false, error: new Error("missing") };
+  const count: Result&lt;number&gt; = { ok: true, value: 42 };
+  return [describe(success), describe(failure), count.value];
+}</code></pre>
+          <p>ok 是判别字段；true 分支有 value，false 分支有 error。Result 适合调用方预期并必须处理的失败。编程错误、不可恢复不变量破坏通常仍应抛出。</p>
+          <p>同一个 Result 定义覆盖成功、失败和数字结果，依次输出 "Draft"、"missing"、42。describe 的两个分支只读取各自允许的成员。</p>
+          <h4>Result 迫使调用方检查 ok</h4>
+
+            <p>不检查 ok 就不能安全读取 value 或 error。判别联合把遗漏失败分支变成编译器可见问题。</p>
+          <h4>成功 Result 保留泛型值类型</h4>
+
+            <p>Result&lt;number&gt; 的成功分支保持 number；Lab 的泛型 T 同样从 loader 穿过 capture 边界。</p>
+
+          <h3>7. 异常与 Result 不应同时表达同一次预期失败</h3>
+          <pre><code>export async function demoCapturedFailure(): Promise&lt;string&gt; {
+  async function capture(): Promise&lt;{
+    readonly ok: false;
+    readonly error: Error;
+  }&gt; {
+    try {
+      throw new Error("offline");
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error
+          ? error
+          : new Error(String(error)),
+      };
+    }
+  }
+
+  const result = await capture();
+  return result.error.message;
+}</code></pre>
+          <p>capture 已决定把 loader 失败转成数据，调用方不应还要 catch 同一个预期失败。反过来，若函数承诺拒绝，就不要再返回隐含的 undefined 表示失败。</p>
+
+          <h3>8. AbortController 发出一次取消信号和原因</h3>
+          <pre><code>export function demoAbortReason(): boolean[] {
+  const controller = new AbortController();
+  const reason = new Error("cancelled");
+  controller.abort(reason);
+
+  return [
+    controller.signal.aborted,
+    controller.signal.reason === reason,
+  ];
+}</code></pre>
+          <p>两个结果都是 true。abort 只触发一次；reason 可由调用方提供，未提供时通常是 AbortError DOMException。signal 是只读通知面，controller 是发出取消的能力。</p>
+
+          <h3>9. 进入操作前先检查已取消 signal</h3>
+          <pre><code>export function demoThrowIfAborted(): string {
+  const reason = new Error("already cancelled");
+  const signal = AbortSignal.abort(reason);
+
+  try {
+    signal.throwIfAborted();
+    return "unreachable";
+  } catch (error) {
+    return error === reason ? "same reason" : "other reason";
+  }
+}</code></pre>
+          <p>throwIfAborted 会原样抛出 signal.reason。预检查能保证已取消调用不启动 loader；但它不能处理检查之后发生的取消。</p>
+
+          <h3>10. 进行中的操作必须监听 signal 或传给支持 signal 的 API</h3>
+          <pre><code>export async function demoInFlightAbort(): Promise&lt;string&gt; {
+  const controller = new AbortController();
+  const pending = new Promise&lt;string&gt;((resolve, reject) =&gt; {
+    controller.signal.addEventListener("abort", () =&gt; {
+      reject(controller.signal.reason);
+    }, { once: true });
+    void resolve;
+  });
+
+  const reason = new Error("stopped");
+  controller.abort(reason);
+  try {
+    return await pending;
+  } catch (error) {
+    return error === reason ? "stopped" : "other";
+  }
+}</code></pre>
+          <p>监听器用 once 避免完成后继续保留。更常见的做法是把 signal 直接传给 fetch、文件 API 或自定义 loader，由拥有底层操作的一层负责停止。</p>
+
+          <h3>11. AbortSignal.any 组合多个取消来源</h3>
+          <pre><code>export function demoCombinedSignal(): string {
+  const manualReason = new Error("manual");
+  const manual = AbortSignal.abort(manualReason);
+  const timeout = new AbortController().signal;
+  const combined = AbortSignal.any([timeout, manual]);
+
+  return combined.reason === manualReason
+    ? "manual"
+    : "other";
+}</code></pre>
+          <p>任一输入取消都会取消组合 signal，并保留触发源的 reason。它适合“用户取消或超时任一发生”的边界；不要自己维护多个布尔标志。</p>
+
+          <h3>12. 取消是请求，不是强制终止任意函数</h3>
+          <pre><code>export function demoIgnoredSignal(): boolean {
+  const controller = new AbortController();
+  const value = "completed";
+  controller.abort();
+  return value === "completed";
+}</code></pre>
+          <p>结果仍是 true，因为这段工作从未观察 signal。AbortSignal 不会杀线程、回滚副作用或中断同步表达式；API 必须明确接受并检查它。</p>
+          <div class="callout"><strong>失败所有权：</strong>底层产生 Error，中间层必要时用 cause 增加上下文，边界层选择继续抛出或转成 Result；取消 signal 始终传到真正拥有操作的一层。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>TypeScript / Node</th></tr></thead>
+              <tbody>
+                <tr><td>异常值</td><td>Throwable 层级</td><td>通常 BaseException 实例</td><td>可 throw 任意值，catch 从 unknown 开始</td></tr>
+                <tr><td>预期失败</td><td>sealed result / Optional / exception</td><td>返回联合约定或 exception</td><td>可判别 Result 联合</td></tr>
+                <tr><td>保留原因</td><td>Throwable cause</td><td>raise ... from ...</td><td>Error options.cause</td></tr>
+                <tr><td>协作取消</td><td>interrupt / CancellationToken 模式</td><td>CancelledError / task cancellation</td><td>AbortController + AbortSignal</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Java 开发者不要期待 checked exception 出现在 TypeScript 签名中；Python 开发者也不要假设抛出值一定继承某个基类。Result 把特定失败放入类型，AbortSignal 把取消能力从调用者传到操作拥有者。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：默认 abort reason 是 DOMException</h3>
+            <pre><code>export function demoDefaultAbort(): string {
+  const signal = AbortSignal.abort();
+  return signal.reason instanceof DOMException
+    ? signal.reason.name
+    : "other";
+}</code></pre>
+            <p>Node 24 中返回 "AbortError"。业务不应只匹配 message 文本；若需要稳定业务分类，应提供自己的 reason 或在边界转换。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 16</code></pre>
+            <p>runner await 异步案例并显示最终 Result 相关观察值；需要 loader 与 signal 的 captureLoadResult 由 <code>/** @lab */</code> 排除。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>直接读取 catch 变量的 message。</strong> 捕获值可能不是 Error。</li>
+            <li><strong>规范化时总创建新 Error。</strong> 这会丢失已有 Error 的身份和 stack。</li>
+            <li><strong>只复制底层 message。</strong> 需要上下文时用 cause 保留原原因。</li>
+            <li><strong>同时用 undefined、Result 和 throw 表示同一失败。</strong> 调用方无法知道该检查什么。</li>
+            <li><strong>在 finally 中 return。</strong> 它会覆盖原结果或异常。</li>
+            <li><strong>认为 controller.abort 会强制停止任意代码。</strong> 操作必须观察 signal。</li>
+            <li><strong>只做开始前 aborted 检查。</strong> 进行中取消还需监听或下传 signal。</li>
+            <li><strong>忽略 signal.reason。</strong> 它是定位取消来源的重要证据。</li>
+            <li><strong>长期保留 abort listener。</strong> 使用 once 或在完成后移除。</li>
+            <li><strong>把取消一律记录成系统故障。</strong> 用户取消、超时与真实失败可能需要不同呈现。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入 package.json、pnpm、tsconfig、检查与构建前，你应当能够：</p>
+          <ul>
+            <li>解释为什么 catch 变量与 rejection reason 必须从 unknown 开始。</li>
+            <li>规范化 Error 时保留真实 Error、包装其他值。</li>
+            <li>用 Error cause 增加上下文而不丢失底层原因。</li>
+            <li>根据预期恢复需求选择异常或 Result。</li>
+            <li>用 ok 判别字段安全收窄泛型 Result。</li>
+            <li>区分 controller、signal、aborted 与 reason 的职责。</li>
+            <li>同时处理预先取消与进行中取消。</li>
+            <li>解释协作取消为什么不能回滚已发生副作用。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Control_flow_and_error_handling">MDN: Control Flow and Error Handling</a>：throw、try/catch 与 finally。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause">MDN: Error cause</a>：包装失败并保留原因。</li>
+            <li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/globals.html#class-abortcontroller">Node.js 24 Globals: AbortController</a>：signal、reason、timeout 与 any。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted">MDN: AbortSignal.throwIfAborted</a>：预检查与原样抛出 reason。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/reason">MDN: AbortSignal.reason</a>：取消原因的值与默认行为。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 16：把可取消 loader 的完成状态变成 Result</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-16.ts</code>，把本课案例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <pre><code>type LoadResult&lt;T&gt; =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: Error };
+
+type AbortableLoader&lt;T&gt; =
+  (signal: AbortSignal) =&gt; Promise&lt;T&gt;;
+
+captureLoadResult&lt;T&gt;(
+  load: AbortableLoader&lt;T&gt;,
+  signal: AbortSignal,
+): Promise&lt;LoadResult&lt;T&gt;&gt;</code></pre>
+
+            <h3>运行规则</h3>
+            <ol>
+              <li>在调用 loader 前执行 <code>signal.throwIfAborted()</code>。</li>
+              <li>未取消时把同一个 signal 传给 loader，并 await 结果。</li>
+              <li>成功返回 <code>{ ok: true, value }</code>。</li>
+              <li>失败若已是 Error，原样放入 error；否则用 <code>new Error(String(error))</code> 包装。</li>
+              <li>不要重新 throw；预先取消、进行中取消和 loader 失败都返回 false 分支。</li>
+            </ol>
+
+            <h3>实现限制</h3>
+            <ul>
+              <li>使用一个 try/catch、instanceof Error 和泛型 T。</li>
+              <li>不要读取 message 来分类，不要使用 finally、Error cause、自定义 Error 子类、any、类型断言或非空断言。</li>
+              <li>不要创建新的 AbortController，也不要替 loader 实现取消监听。</li>
+              <li>Lab 函数前保留 <code>/** @lab */</code>。</li>
+            </ul>
+          </div>
+          <p>capture 只拥有“转换完成状态”的责任；loader 拥有底层操作并决定怎样响应进行中取消。这保持了最小而诚实的边界。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · try 包住哪些语句</summary>
+            <div class="details-body"><p>把 throwIfAborted、loader 调用和 await 都放进同一个 try，才能统一处理预先取消和异步拒绝。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 成功分支保持 T</summary>
+            <div class="details-body"><p><code>const value = await load(signal)</code> 后直接返回 <code>{ ok: true, value }</code>。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 只在必要时包装</summary>
+            <div class="details-body"><p>catch 中使用三元表达式：<code>error instanceof Error ? error : new Error(String(error))</code>。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>严格 TypeScript 中应怎样处理 catch 变量？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>默认认定其为 Error 并直接读取 message 与 stack</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>先视为 unknown 再由 instanceof Error 收窄</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>export type LoadResult&lt;T&gt; =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: Error };
+
+export type AbortableLoader&lt;T&gt; =
+  (signal: AbortSignal) =&gt; Promise&lt;T&gt;;
+
+/** @lab */
+export async function captureLoadResult&lt;T&gt;(
+  load: AbortableLoader&lt;T&gt;,
+  signal: AbortSignal,
+): Promise&lt;LoadResult&lt;T&gt;&gt; {
+  try {
+    signal.throwIfAborted();
+    const value = await load(signal);
+    return { ok: true, value };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error
+        ? error
+        : new Error(String(error)),
+    };
+  }
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1–4 行</dt><dd>LoadResult 用 ok 判别成功 T 与失败 Error，调用方必须处理对应字段。</dd>
+                <dt>第 6–7 行</dt><dd>AbortableLoader 明确底层操作接收 signal 并返回未来的 T。</dd>
+                <dt>第 9 行</dt><dd>@lab 排除需要依赖注入的参数化函数。</dd>
+                <dt>第 10–13 行</dt><dd>泛型函数保持 loader 的结果类型，并公开 Promise&lt;LoadResult&lt;T&gt;&gt;。</dd>
+                <dt>第 14–17 行</dt><dd>try 同时覆盖预检查与 await；成功保留原 signal 和 value。</dd>
+                <dt>第 18–24 行</dt><dd>catch 从 unknown 收窄；真实 Error 原样保留，其余值才包装。</dd>
+                <dt>第 25–26 行</dt><dd>函数结束；没有重抛、隐藏取消或自建 controller。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 16
+pnpm examples 16</code></pre>
+          <p>Lab 验收检查成功值与 signal 身份、Error 原对象、非 Error 包装、预先取消不调用 loader、进行中取消由 loader 监听并保留 reason；静态检查覆盖泛型 T、AbortableLoader、LoadResult 和 AbortSignal。通过后请说明：为什么 capture 不能只检查一次 aborted 就声称支持进行中取消？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0015-event-loop-promises-async-fetch.html">← 上一课：事件循环、Promise 与 fetch</a>
+          <a href="0017-package-pnpm-tsconfig-check-build.html">下一课：工具链 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 16 · Error, Result and AbortSignal · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

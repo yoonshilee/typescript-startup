@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 11 课：映射类型、常用工具类型与安全的不可变对象更新。">
+    <title>第 11 课 · 工具类型与安全更新</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/type-system.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 11 / 24</p>
+          <p class="lesson-meta">建议 90 分钟<br>从类型创建类型<br>Lab 11</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 11</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>从一个真实对象契约派生视图，不复制第二份真相</h1>
+          <p class="lesson-lead">列表摘要、局部更新和只读视图往往只是同一对象类型的不同形态。映射类型遍历已有键并转换属性修饰符；内置工具类型封装常见转换，让源类型变化时派生类型自动跟随。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-11.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>updateNote(note, changes)</code>，从普通笔记数据创建新的更新结果；changes 只能包含已有的非 id 属性，并保持各属性原来的值类型。</p>
+          <ul>
+            <li>读懂 <code>[Key in keyof T]</code> 如何逐个映射对象键。</li>
+            <li>用 <code>?</code>、<code>-?</code>、<code>readonly</code> 与 <code>-readonly</code> 改变属性修饰符。</li>
+            <li>使用 Partial、Required、Readonly、Pick、Omit 与 Record，而不是重复手写对象类型。</li>
+            <li>组合 <code>Partial&lt;Omit&lt;T, "id"&gt;&gt;</code> 建立局部更新面。</li>
+            <li>区分静态类型转换与对象展开的浅层运行时更新。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 55 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：第 10 课已经会遍历键的候选集合</h2>
+          <pre><code>export function demoKeyLookup(): string {
+  type Note = {
+    readonly id: string;
+    title: string;
+    archived: boolean;
+  };
+  type NoteKey = keyof Note;
+
+  const key: NoteKey = "title";
+  return key;
+}</code></pre>
+          <p><code>keyof Note</code> 得到 <code>"id" | "title" | "archived"</code>。第 10 课用其中一个键读取 T[K]；本课改为让类型系统依次处理整个键联合，为每个键生成一个新属性声明。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：键联合进入映射，生成新的对象类型</h2>
+
+          <h3>1. 手写派生类型会产生两份容易漂移的契约</h3>
+          <pre><code>export function demoManualUpdateType(): { title?: string } {
+  type Note = {
+    readonly id: string;
+    title: string;
+    archived: boolean;
+  };
+  type ManualChanges = {
+    title?: string;
+    archived?: boolean;
+  };
+
+  const changes: ManualChanges = { title: "Release" };
+  const note: Note = { id: "n1", title: "Draft", archived: false };
+  void note;
+  return changes;
+}</code></pre>
+          <p>ManualChanges 目前正确，但 Note 新增 body 或把 archived 改名后，它不会自动更新。类型别名不会在运行时同步；维护者必须记住修改两处。派生类型的目标是把 Note 留作唯一结构真相。</p>
+
+          <h3>2. 映射类型逐个读取键和值类型</h3>
+          <pre><code>export function demoMappedOptional() {
+  type NoteFields = {
+    title: string;
+    archived: boolean;
+  };
+  type OptionalFields&lt;T&gt; = {
+    [Key in keyof T]?: T[Key];
+  };
+
+  const changes: OptionalFields&lt;NoteFields&gt; = { archived: true };
+  const builtin: Partial&lt;NoteFields&gt; = { title: "Release" };
+  return { mapped: changes, builtin };
+}</code></pre>
+          <p><code>keyof T</code> 产生键联合；<code>Key in ...</code> 让 Key 依次代表每个成员；<code>T[Key]</code> 取回该属性原来的值类型；属性名后的问号把生成属性设为可选。最终仍是普通对象类型。</p>
+          <p>上面的 OptionalFields 是用于解释机制的手写版本；Partial 是同一规则的内置表达。mapped 与 builtin 都只能包含合法字段的任意子集。</p>
+          <h4>Partial 是“全部属性可选”的内置映射</h4>
+
+          <p>Partial 保留属性名和值类型，只改变可选性，所以 title 仍只能是 string。它允许任意子集，包括空对象；它不会创建对象、填充 undefined 或递归修改嵌套属性。</p>
+
+          <h3>3. 把映射过程手动展开一次</h3>
+          <ol>
+            <li>T 是 NoteFields，因此 <code>keyof T</code> 是 title | archived。</li>
+            <li>Key 为 title 时，<code>T[Key]</code> 是 string，生成 <code>title?: string</code>。</li>
+            <li>Key 为 archived 时，<code>T[Key]</code> 是 boolean，生成 <code>archived?: boolean</code>。</li>
+            <li>两个结果合并为一个对象类型；没有循环在 JavaScript 中执行。</li>
+          </ol>
+          <p>映射类型是编译器构造类型的规则，不是 Array.map，也不会遍历运行时对象。</p>
+
+          <h3>4. 映射修饰符可以增加或移除可选与只读</h3>
+          <pre><code>export function demoMappingModifiers(): {
+  id: string;
+  title: string;
+} {
+  type Draft = {
+    readonly id: string;
+    title?: string;
+  };
+  type MutableRequired&lt;T&gt; = {
+    -readonly [Key in keyof T]-?: T[Key];
+  };
+
+  const complete: MutableRequired&lt;Draft&gt; = { id: "n1", title: "Draft" };
+  complete.title = "Release";
+  return complete;
+}</code></pre>
+          <p><code>-readonly</code> 移除只读，<code>-?</code> 移除可选。没有前缀时 <code>?</code> 与 <code>readonly</code> 等价于显式的 <code>+?</code> 与 <code>+readonly</code>。这些变化仍只影响静态属性契约。</p>
+
+          <h3>5. Required 与 Readonly 转换相反维度</h3>
+          <pre><code>export function demoRequiredAndReadonly(): string {
+  type Draft = {
+    title: string;
+    body?: string;
+  };
+  type CompleteDraft = Required&lt;Draft&gt;;
+
+  const complete: Readonly&lt;CompleteDraft&gt; = {
+    title: "Draft",
+    body: "Details",
+  };
+  return complete.body;
+}</code></pre>
+          <p>Required 要求 body 必须出现；Readonly 阻止通过 complete 重新赋值 title 或 body。两者都是浅层类型转换：不会补值、冻结对象或递归处理嵌套对象。</p>
+
+          <h3>6. Pick 选择键，Omit 排除键</h3>
+          <pre><code>export function demoPickAndOmit(): string {
+  type Note = {
+    readonly id: string;
+    title: string;
+    body?: string;
+    archived: boolean;
+  };
+  type NotePreview = Pick&lt;Note, "id" | "title"&gt;;
+  type NewNote = Omit&lt;Note, "id"&gt;;
+
+  const preview: NotePreview = { id: "n1", title: "Draft" };
+  const input: NewNote = { title: "Release", archived: false };
+  return `${preview.title}:${input.title}`;
+}</code></pre>
+          <p>Pick 的第二个参数只能是 Note 的合法键；Omit 的第二个参数表示不保留的键。它们改变静态可见属性集合，不会在运行时从对象复制或删除字段。</p>
+
+          <h3>7. Record 把一组固定键映射到统一值类型</h3>
+          <pre><code>export function demoRecord(): string {
+  type NoteStatus = "active" | "archived";
+  const labels: Record&lt;NoteStatus, string&gt; = {
+    active: "Active",
+    archived: "Archived",
+  };
+
+  return labels.active;
+}</code></pre>
+          <p>Record 要求 active 与 archived 都存在且值为 string。它适合“已知有限键集合到同一种值类型”的查找表；键各有不同值类型时，直接对象类型更清楚。</p>
+
+          <h3>8. 组合工具类型建立更新面，再显式排除 id</h3>
+          <pre><code>export function demoSafeChanges(): string {
+  type Note = {
+    readonly id: string;
+    title: string;
+    archived: boolean;
+  };
+  type NoteChanges = Partial&lt;Omit&lt;Note, "id"&gt;&gt; &amp; {
+    readonly id?: never;
+  };
+
+  const changes: NoteChanges = { title: "Release" };
+  return changes.title ?? "Untitled";
+}</code></pre>
+          <p>先 Omit 移除 id，再 Partial 让剩余字段可选。交叉符号 <code>&amp;</code> 要求同时满足右侧规则；在本项目的 exact optional 语义下，<code>id?: never</code> 表示 id 可以缺席，却没有合法值可写。这还能阻止带 id 的变量绕过额外属性检查。</p>
+
+          <h3>9. 对象展开执行浅层、从左到右的运行时更新</h3>
+          <pre><code>export function demoShallowUpdate(): boolean[] {
+  const metadata = { source: "cli" };
+  const note = { id: "n1", title: "Draft", metadata };
+  const updated = { ...note, title: "Release" };
+
+  return [
+    updated !== note,
+    updated.title === "Release",
+    note.title === "Draft",
+    updated.metadata === metadata,
+  ];
+}</code></pre>
+          <p>展开先复制 note 的自有可枚举属性，后面的 title 覆盖同名值。新外层对象与 note 不同，但未替换的 metadata 引用保持相同。类型工具不会改变这些 JavaScript 行为。</p>
+
+          <h3>10. Lab 把静态更新面与原生展开连接起来</h3>
+          <pre><code>export function demoUpdateNote(): string {
+  function updateNote&lt;T extends { readonly id: string }&gt;(
+    note: T,
+    changes: Partial&lt;Omit&lt;T, "id"&gt;&gt; &amp; { readonly id?: never },
+  ): T {
+    return { ...note, ...changes };
+  }
+
+  const note = { id: "n1", title: "Draft", archived: false };
+  return updateNote(note, { title: "Release" }).title;
+}</code></pre>
+          <ol>
+            <li>从 note 推断完整 T，并要求 T 至少有 readonly string id。</li>
+            <li>Omit 从 T 的可更新面移除 id，Partial 让其余属性可选择提供。</li>
+            <li>id?: never 明确拒绝任何试图更新 id 的对象或变量。</li>
+            <li>运行时展开 note，再用 changes 覆盖同名字段，返回同一 T 的新外层对象。</li>
+          </ol>
+          <div class="callout"><strong>最小实现：</strong>工具类型只描述允许的 changes；JavaScript 对象展开已经实现浅层不可变更新，不需要更新器类、字段分派表或自定义循环。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>从类型选择字段</td><td>常需新 DTO、映射器或代码生成</td><td>TypedDict 与静态工具组合</td><td><code>Pick&lt;T, K&gt;</code> / <code>Omit&lt;T, K&gt;</code></td></tr>
+                <tr><td>局部更新输入</td><td>builder、nullable DTO 或专用 patch 类</td><td>dict、dataclasses.replace 与类型提示</td><td><code>Partial&lt;T&gt;</code> 加对象展开</td></tr>
+                <tr><td>批量属性变换</td><td>通常没有直接语言级对应物</td><td>类型检查器扩展能力</td><td><code>[K in keyof T]</code></td></tr>
+                <tr><td>固定键查找表</td><td>Map 或 EnumMap</td><td>dict + Literal</td><td><code>Record&lt;K, V&gt;</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>TypeScript 的优势是直接描述 JavaScript 对象已有的动态形态；代价是这些转换只存在于检查阶段。与 Java DTO 不同，Pick 或 Omit 不会生成新的运行时类；与 Python dict 一样，真正的复制仍由展开语法完成。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：Readonly 是浅层约束</h3>
+            <pre><code>export function demoShallowReadonly(): number {
+  const note: Readonly&lt;{ metadata: { views: number } }&gt; = {
+    metadata: { views: 0 },
+  };
+
+  note.metadata.views += 1;
+  return note.metadata.views;
+}</code></pre>
+            <p>不能把 note.metadata 重新赋给另一个对象，但嵌套对象本身没有被转成 Readonly，所以 views 仍可修改。需要深只读时必须有真实需求并明确递归规则；本课不创建通用 DeepReadonly。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：Required 不会在运行时填默认值</h3>
+            <pre><code>export function demoRequiredValue(): number {
+  type Draft = { title?: string; limit?: number };
+  type CompleteDraft = Required&lt;Draft&gt;;
+
+  const complete: CompleteDraft = { title: "Draft", limit: 20 };
+  return complete.limit;
+}</code></pre>
+            <p>Required 只要求赋值时提供两个属性。若输入来自 unknown，仍需运行时解析并主动设置默认值；类型工具不能把缺失字段变出来。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：Pick 不会投影运行时对象</h3>
+            <pre><code>export function demoPickDoesNotProject(): string[] {
+  type Note = { id: string; title: string; archived: boolean };
+  const note: Note = { id: "n1", title: "Draft", archived: false };
+  const preview: Pick&lt;Note, "id" | "title"&gt; = note;
+
+  return Object.keys(preview);
+}</code></pre>
+            <p>preview 的静态类型只暴露 id 与 title，但它仍引用原来的 note，运行时 Object.keys 仍得到 id、title、archived。真正投影数据需要显式创建新对象。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 11</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>手写一份与源类型几乎相同的更新类型。</strong> 源字段改变后副本会静默漂移。</li>
+            <li><strong>把映射类型当成运行时循环。</strong> 它只构造静态类型，不读取或创建对象。</li>
+            <li><strong>认为 Partial 把值类型加入 undefined。</strong> 在 exact optional 语义下，它表示属性可缺席，不表示可显式写 undefined。</li>
+            <li><strong>认为 Required 会补齐数据。</strong> 它只收紧赋值契约，默认值仍要由运行时代码产生。</li>
+            <li><strong>认为 Readonly 会冻结对象。</strong> 它是浅层静态限制，不等于 Object.freeze，更不是深冻结。</li>
+            <li><strong>认为 Pick/Omit 会改变对象内容。</strong> 类型视图不会投影或删除运行时字段。</li>
+            <li><strong>把 Record 用于值类型各不相同的对象。</strong> 直接对象类型通常更易读、更精确。</li>
+            <li><strong>嵌套很多工具类型只为显得通用。</strong> 一个只用一次的简单对象类型往往更清楚。</li>
+            <li><strong>把静态更新面当作外部数据校验。</strong> JSON 或命令行输入仍应先作为 unknown 验证。</li>
+            <li><strong>用对象展开更新类实例。</strong> 本课函数面向普通数据对象；展开不会保留原型与非枚举成员。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入条件类型、infer 与模板字面量类型前，你应当能够：</p>
+          <ul>
+            <li>把一个简单映射类型逐键展开，并写出最终对象类型。</li>
+            <li>用映射修饰符增加或移除 readonly 与 optional。</li>
+            <li>根据真实关系选择 Partial、Required、Readonly、Pick、Omit 或 Record。</li>
+            <li>解释每个工具类型保留了什么、改变了什么，以及它没有执行什么运行时工作。</li>
+            <li>组合 <code>Partial&lt;Omit&lt;T, "id"&gt;&gt;</code> 建立非身份字段更新面。</li>
+            <li>解释 <code>id?: never</code> 在 exact optional 语义下怎样拒绝 id。</li>
+            <li>预测对象展开的覆盖顺序、外层身份与嵌套引用关系。</li>
+            <li>知道何时停止类型组合并写一个直接对象类型。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/mapped-types.html">TypeScript Handbook: Mapped Types</a>：遍历键与映射修饰符。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/utility-types.html#partialtype">TypeScript Utility Types: Partial</a>：局部更新输入的官方示例。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/utility-types.html#requiredtype">TypeScript Utility Types: Required and Readonly</a>：必需与只读属性转换。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type">TypeScript Utility Types: Record</a>：固定键集合到统一值类型。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/utility-types.html#picktype-keys">TypeScript Utility Types: Pick and Omit</a>：选择或排除对象属性。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 11：安全地更新普通笔记对象</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-11.ts</code>，把本课案例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>导出下面的泛型函数，面向至少具有 readonly string id 的普通数据对象：</p>
+            <pre><code>updateNote&lt;T extends { readonly id: string }&gt;(
+  note: T,
+  changes: Partial&lt;Omit&lt;T, "id"&gt;&gt; &amp; { readonly id?: never },
+): T</code></pre>
+
+            <h3>运行规则</h3>
+            <ol>
+              <li>返回 <code>{ ...note, ...changes }</code> 创建的新外层对象。</li>
+              <li>changes 中出现的属性覆盖 note 中的同名属性。</li>
+              <li>未更新属性保持原值；嵌套对象或数组保持原引用。</li>
+              <li>不修改 note、changes 或任何嵌套值。</li>
+              <li>空 changes 仍返回一个与 note 内容相等的新外层对象。</li>
+            </ol>
+
+            <h3>类型规则</h3>
+            <ul>
+              <li>T 必须保留调用方完整的普通对象类型，并至少包含 readonly string id。</li>
+              <li>changes 只允许 T 中除 id 外的属性；每个值必须匹配原属性类型。</li>
+              <li>直接对象和先保存到变量的 changes 都不能包含 id。</li>
+              <li>可选属性继续遵守 exact optional 语义，不能把缺失随意改写成显式 undefined。</li>
+              <li>不要使用 any、unknown、类型断言、Object.assign、JSON 克隆、分支或自定义循环。</li>
+            </ul>
+          </div>
+          <p>本课只处理已验证的普通数据对象。来自文件或网络的 unknown 仍需先验证；第 12 课才会解释 Omit 等工具内部使用的条件类型机制。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先写最小泛型约束</summary>
+            <div class="details-body"><p>让 T extends 一个只含 readonly string id 的对象类型，这样完整的 title、archived、tags 等字段仍由调用方推断。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 先排除 id，再让其余字段可选</summary>
+            <div class="details-body"><p>changes 的主体是 <code>Partial&lt;Omit&lt;T, "id"&gt;&gt;</code>；再交叉 <code>{ readonly id?: never }</code>，把 id 明确设为不可提供。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 运行时只需展开两次</summary>
+            <div class="details-body"><p>先展开 note，再展开 changes。后出现的同名属性自然覆盖前值，并得到新外层对象。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>Partial&lt;T&gt; 对对象类型 T 做了什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>保留 T 的属性和值类型，只把每个属性变成可选项</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>复制 T 的运行时对象，再把每个缺失属性填成空值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>/** @lab */
+export function updateNote&lt;T extends { readonly id: string }&gt;(
+  note: T,
+  changes: Partial&lt;Omit&lt;T, "id"&gt;&gt; &amp; { readonly id?: never },
+): T {
+  return { ...note, ...changes };
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1 行</dt><dd>T 保留完整输入类型，同时要求普通笔记对象具有 readonly string id。</dd>
+                <dt>第 2 行</dt><dd>note 提供原始值，并决定本次调用的具体 T。</dd>
+                <dt>第 3 行</dt><dd>Omit 排除 id，Partial 让其余字段可选；id?: never 拒绝重新提供身份。</dd>
+                <dt>第 4 行</dt><dd>返回类型仍是 T，因此额外字段、readonly 与可选关系继续保留。</dd>
+                <dt>第 5 行</dt><dd>对象展开创建新外层对象，changes 从左到右覆盖同名属性。</dd>
+                <dt>第 6 行</dt><dd>函数结束；没有断言、分支、深克隆或额外状态。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 11
+pnpm examples 11</code></pre>
+          <p>Lab 验收只检查 <code>updateNote</code>：覆盖更新、新外层身份、输入不变、未更新嵌套引用、显式替换引用、空更新、完整 T 保留、readonly 输入、非法 id、变量中的 id、未知字段、错误值类型与 exact optional 语义。通过后请说明：Partial 与对象展开分别在哪个阶段工作？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0010-generic-constraints-keyof-type-queries.html">← 上一课：泛型约束与类型查询</a>
+          <a href="0012-conditional-infer-template-literal-types.html">下一课：条件类型、infer 与模板字面量类型 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 11 · Utility and mapped types · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

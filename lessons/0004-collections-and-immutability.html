@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 04 课：对象、数组、Map、Set、迭代、可变与不可变更新。">
+    <title>第 04 课 · 集合与不可变更新</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/javascript-runtime.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 04 / 24</p>
+          <p class="lesson-meta">建议 90 分钟<br>集合与对象身份<br>Lab 04</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 04</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>对象有身份，集合选择应跟问题形状一致</h1>
+          <p class="lesson-lead">数组不是 Java List 的换名，对象也不是轻量 JavaBean。你将从对象身份与引用开始，选择 Array、Map、Set，并用复制表达可观察的不可变更新。</p>
+          <div class="callout"><strong>本课代码文件：</strong>把所有 TypeScript 练习依次放入 <code>src/lesson-04.ts</code>。可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>addTag(tags, tag)</code>，返回加入规范化标签的新数组，同时保持原数组不变。</p>
+          <ul>
+            <li>读写对象属性，理解简写属性、计算属性与展开。</li>
+            <li>根据顺序、键查询和唯一性选择 Array、Map 或 Set。</li>
+            <li>使用数组转换方法而不是无目的循环。</li>
+            <li>通过引用身份验证“修改原对象”与“返回新对象”的差别。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 55 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：参数复制引用值，共享对象仍可被修改</h2>
+          <p>第 03 课已经看到：对象参数的引用值按值复制，调用者与函数内部仍可能指向同一对象。本课从这个事实继续：</p>
+          <pre><code>export function demoSharedObject(): string {
+  const note = { title: "Release", tags: ["typescript"] };
+  const alias = note;
+
+  alias.title = "Changed";
+  return note.title; // "Changed"
+}</code></pre>
+          <p><code>note</code> 与 <code>alias</code> 是两个绑定，但当前保存同一个对象引用。<code>const</code> 阻止重绑，不阻止经由引用修改对象。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：对象身份、集合语义与更新策略</h2>
+
+          <h3>1. 对象把属性键映射到值</h3>
+          <p>普通对象最适合表达一个领域实体或一组有名字的字段。属性键通常是字符串或 symbol，读取方式有点号和方括号两种。点号适合源码中已知的合法标识符，方括号适合动态键。</p>
+          <pre><code>export function readObjectProperties() {
+  const title = "Release notes";
+  const note = {
+    title,
+    status: "active",
+    "created-at": "2026-08-20T08:00:00.000Z",
+  };
+
+  return {
+    title: note.title,
+    createdAt: note["created-at"],
+  };
+}</code></pre>
+          <p><code>title</code> 是属性简写，等价于 <code>title: title</code>。对象属性有顺序规则，但不应把普通对象当成专门的排序数据结构。</p>
+
+          <h3>2. 数组是有序、按零开始索引的对象</h3>
+          <p>数组适合有顺序、允许重复的同类值序列。<code>length</code> 表示索引范围上界相关的长度，不等同于 Java 集合的 <code>size()</code> 方法。访问不存在的索引在运行时返回 <code>undefined</code>，不会像 Java 一样立即抛越界异常。</p>
+          <pre><code>export function inspectArrayIndexes() {
+  const tags = ["typescript", "node"];
+
+  return {
+    first: tags[0],       // "typescript"
+    missing: tags[9],     // undefined
+    length: tags.length,  // 2
+  };
+}</code></pre>
+          <p>本项目启用了 <code>noUncheckedIndexedAccess</code>，因此 TypeScript 会把普通索引读取视为“元素或 undefined”。这是静态层主动提醒你 JavaScript 的真实运行行为。</p>
+
+          <h3>3. 数组方法按问题类型分类</h3>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>方法</th><th>结果</th><th>是否改原数组</th></tr></thead>
+              <tbody>
+                <tr><td>每项转换</td><td><code>map</code></td><td>等长新数组</td><td>否</td></tr>
+                <tr><td>保留匹配项</td><td><code>filter</code></td><td>新数组</td><td>否</td></tr>
+                <tr><td>找第一项</td><td><code>find</code></td><td>元素或 undefined</td><td>否</td></tr>
+                <tr><td>是否存在</td><td><code>some</code></td><td>boolean</td><td>否</td></tr>
+                <tr><td>是否全部满足</td><td><code>every</code></td><td>boolean</td><td>否</td></tr>
+                <tr><td>聚合</td><td><code>reduce</code></td><td>自定义累积值</td><td>否</td></tr>
+                <tr><td>尾部追加</td><td><code>push</code></td><td>新长度</td><td>是</td></tr>
+                <tr><td>原地排序</td><td><code>sort</code></td><td>同一数组</td><td>是</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>能用 <code>map</code> 清楚表达“每项转换”时，不需要手写索引循环和临时数组。<code>reduce</code> 很强，但如果一个循环或 <code>Map</code> 更易读，就不为炫技使用它。</p>
+
+          <h3>4. Map 表达任意键到值的映射</h3>
+          <p><code>Map</code> 的键可以是任意值，具有明确的 <code>size</code>、<code>get</code>、<code>set</code>、<code>has</code> 和迭代 API。它适合动态键集合、频繁增删或键并非普通字符串的情况。普通对象更适合固定字段的领域记录。</p>
+          <pre><code>export function countTagsWithMap() {
+  function countTags(tags: string[]) {
+    const counts = new Map&lt;string, number&gt;();
+
+    for (const tag of tags) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+
+    return counts.get("ts");
+  }
+
+  return countTags(["ts", "node", "ts"]);
+}</code></pre>
+          <p><code>get("ts")</code> 在没有对应键时返回 <code>undefined</code>。这里省略显式返回类型，让 TypeScript 自己推断；<code>number | undefined</code> 的联合类型写法留到第 07 课。<code>Map&lt;string, number&gt;</code> 中的尖括号暂时只按“键是 string、值是 number”阅读，泛型机制会在第 09 课先讲解、再练习，本课 Lab 不要求书写这种语法。</p>
+
+          <h3>5. Set 表达唯一值集合</h3>
+          <p><code>Set</code> 保证每个值最多出现一次，并保留插入迭代顺序。它适合去重和成员测试，不适合根据数字索引取第 N 项。</p>
+          <pre><code>export function inspectUniqueTags() {
+  function inspectTags(tags: string[]) {
+    const uniqueTags = new Set(tags);
+
+    return {
+      size: uniqueTags.size,
+      hasTypeScript: uniqueTags.has("ts"),
+      values: [...uniqueTags],
+    };
+  }
+
+  const tags = inspectTags(["ts", "node", "ts"]);
+  const first = { id: "n1" };
+  const second = { id: "n1" };
+  const notes = new Set([first, second, first]);
+  return { ...tags, objectCount: notes.size };
+}</code></pre>
+          <h4>Set 去重只按值/身份，不做深比较</h4>
+
+          <p>结果中的 <code>objectCount</code> 是 2：重复加入同一 <code>first</code> 引用会去重，内容相同的 <code>second</code> 仍是独立对象。按业务 id 去重时，应使用 Map 的 id 键或显式集合逻辑。</p>
+
+          <h3>6. 展开语法按所在位置展开值</h3>
+          <p><code>...</code> 不是一个独立的“复制命令”。它放在哪里，决定了它要展开什么：</p>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead>
+                <tr><th>写法</th><th>这里的 <code>...</code> 做什么</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>[...source]</code></td><td>依次读取可迭代值中的元素，把元素放进新数组。</td></tr>
+                <tr><td><code>{ ...source }</code></td><td>读取对象自身可枚举属性，把属性名和属性值写进新对象。</td></tr>
+                <tr><td><code>fn(...source)</code></td><td>把可迭代值中的元素依次作为函数参数。本课只需认识，不在 Lab 中使用。</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>6.1 先拆开数组展开</h4>
+          <p><code>const copiedTags = [...original.tags, "node"]</code> 可以按下面的顺序理解：</p>
+          <ol>
+            <li>创建一个新的空数组。</li>
+            <li>依次读取 <code>original.tags</code> 中的元素，并放进新数组。</li>
+            <li>再把字符串 <code>"node"</code> 放到新数组末尾。</li>
+          </ol>
+          <p>因此 <code>copiedTags</code> 和 <code>original.tags</code> 内容相似，但不是同一个数组。原数组没有被修改。</p>
+
+          <h4>6.2 再拆开对象展开与覆盖顺序</h4>
+          <p><code>{ ...original, tags: copiedTags }</code> 会先创建新对象，再把 <code>original</code> 的属性写进去，最后用新的 <code>tags</code> 覆盖刚刚复制进来的旧 <code>tags</code>。对象字面量中，同名属性后写的值生效，所以顺序很重要。</p>
+          <pre><code>export function demoTagCopy() {
+  const original = {
+    title: "Release",
+    tags: ["typescript"],
+  };
+
+  const copiedTags = [...original.tags, "node"];
+  const updated = {
+    ...original,
+    tags: copiedTags,
+  };
+
+  return {
+    original,
+    updated,
+    sameObject: original === updated,
+    sameTags: original.tags === updated.tags,
+  };
+}</code></pre>
+          <p>这里的引用关系从 <code>original → 外层对象 A → tags 数组 X</code>，变成两条独立路径：<code>original → A → X</code> 和 <code>updated → 外层对象 B → tags 数组 Y</code>。所以返回结果中的 <code>sameObject</code> 和 <code>sameTags</code> 都是 <code>false</code>。</p>
+          <div class="callout warning">
+            <strong>顺序不能反过来：</strong><code>{ tags: copiedTags, ...original }</code> 会先写入新数组，再被后面的 <code>original.tags</code> 覆盖，结果仍然使用旧数组。
+          </div>
+
+          <h4>6.3 “浅复制”停在哪一层</h4>
+          <p>展开语法只创建当前这一层的新容器，不会递归复制容器里面的对象或数组。若只写 <code>{ ...original }</code>，外层对象虽然变了，但 <code>tags</code> 属性保存的仍是旧数组引用，因此 <code>original.tags === updated.tags</code> 会是 <code>true</code>。</p>
+          <p>本例修改路径是 <code>note → tags</code>，所以需要复制路径上的两层：用对象展开复制 <code>note</code>，再用数组展开复制 <code>tags</code>。如果某个嵌套值没有变化，就不必复制它。</p>
+          <p>本课先建立普通对象和数组的这个模型；原型、属性描述符、getter、symbol 键以及真正的深复制会在需要时单独讨论。</p>
+
+          <h3>7. 不可变更新是可观察策略，不是 JavaScript 强制规则</h3>
+          <p>JavaScript 允许修改；本课程在领域更新函数中优先返回新值，因为它减少别名之间的隐式影响，使测试、撤销、并发推理和状态比较更直接。局部、私有、短生命周期的可变变量仍然完全合理，例如在函数内部构建一个 Map。</p>
+          <div class="callout"><strong>选择标准：</strong>共享领域值用新值表达更新；函数内部受控的临时累积可以就地修改。不要为了“纯”而复制所有东西，也不要让调用者猜某个函数是否偷偷改了输入。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>结构</th><th>Java</th><th>Python</th><th>JavaScript / TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>字段记录</td><td>class、record、POJO</td><td>dict、dataclass、对象</td><td>普通对象；TS 描述其结构</td></tr>
+                <tr><td>有序序列</td><td>Array、List</td><td>list、tuple</td><td>Array；越界读返回 undefined</td></tr>
+                <tr><td>键值映射</td><td>Map</td><td>dict</td><td>固定字段用 object，动态键可用 Map</td></tr>
+                <tr><td>唯一集合</td><td>Set</td><td>set</td><td>Set，按 SameValueZero/对象身份判重</td></tr>
+                <tr><td>流式转换</td><td>Stream API</td><td>推导式、map/filter</td><td>数组 map/filter/find/some/every</td></tr>
+                <tr><td>浅复制</td><td>需构造器/record wither/库</td><td>展开、copy、推导式</td><td>对象与数组展开语法</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Java 开发者通常容易低估数组越界返回 <code>undefined</code> 的风险；Python 开发者容易把普通对象和 dict 完全等同。TypeScript 的结构化类型能约束普通对象，但运行时它仍没有 Java class 身份或 Python dataclass 自动行为。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：转换、筛选与查找不要混在一个循环</h3>
+            <pre><code>export function selectActiveTitles(): string[] {
+  const notes = [
+    { title: "TypeScript", status: "active" },
+    { title: "Old draft", status: "archived" },
+  ];
+
+  return notes
+    .filter((note) =&gt; note.status === "active")
+    .map((note) =&gt; note.title);
+}</code></pre>
+            <p>第一步回答“保留谁”，第二步回答“变成什么”。链式调用不是越多越好，但在两个清楚阶段时比同时维护索引与临时状态更易读。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：<code>sort</code> 会改原数组</h3>
+            <pre><code>export function sortTitles() {
+  const titles = ["Zeta", "Alpha"];
+  const sorted = [...titles].sort();
+
+  return { titles, sorted };
+}</code></pre>
+            <p>先展开再排序，修改的是新数组。新运行时还提供 <code>toSorted()</code> 返回排序副本；这里展示展开是为了看清浅复制机制。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：浅复制仍可能共享嵌套数组</h3>
+            <pre><code>export function demoShallowCopy(): string[] {
+  const original = { tags: ["ts"] };
+  const shallow = { ...original };
+
+  shallow.tags.push("node");
+  return original.tags; // ["ts", "node"]
+}</code></pre>
+            <p><code>const shadow = original</code> 只是把同一个对象引用交给另一个变量；<code>shadow</code> 只是变量名，换成前文的 <code>alias</code> 也没有区别。对象展开则会创建新的外层对象，但只复制各属性当前保存的值。对 <code>tags</code> 来说，这个值是数组引用，所以新旧外层对象仍指向同一个数组。</p>
+            <div class="table-scroll">
+              <table class="comparison-table">
+                <thead><tr><th>比较</th><th><code>const shadow = original</code></th><th><code>const shallow = { ...original }</code></th></tr></thead>
+                <tbody>
+                  <tr><td>外层对象</td><td>同一个：<code>original === shadow</code> 为 <code>true</code></td><td>不同：<code>original === shallow</code> 为 <code>false</code></td></tr>
+                  <tr><td>内层 tags 数组</td><td>同一个：<code>original.tags === shadow.tags</code> 为 <code>true</code></td><td>仍是同一个：<code>original.tags === shallow.tags</code> 为 <code>true</code></td></tr>
+                  <tr><td><code>other.tags.push("node")</code></td><td>修改共享数组，<code>original.tags</code> 会变化</td><td>同样修改共享数组，<code>original.tags</code> 也会变化</td></tr>
+                  <tr><td><code>other.tags = ["node"]</code></td><td>修改同一个外层对象的属性，<code>original.tags</code> 会变化</td><td>只修改新外层对象的属性，<code>original.tags</code> 不变</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p>因此当前示例使用 <code>push</code> 时，两种写法看起来结果相同；区别要在修改外层属性或重新给属性赋值时才会显现。引用关系分别是 <code>original / shadow → 对象 A → 数组 X</code>，以及 <code>original → 对象 A → 数组 X</code>、<code>shallow → 对象 B → 数组 X</code>。</p>
+            <div class="callout"><strong>记忆方式：</strong>直接赋值不复制任何对象；对象展开只复制当前这一层。更新嵌套集合时，要复制发生变化路径上的每一层。</div>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 04</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>把 <code>const</code> 当深度不可变。</strong> 它只固定变量绑定，对象属性和数组仍可修改。</li>
+            <li><strong>用 <code>===</code> 比较对象内容。</strong> 对象相等比较身份；结构断言需要深比较。</li>
+            <li><strong>忘记 <code>sort</code>、<code>reverse</code>、<code>push</code> 等会修改原数组。</strong> 在共享领域值上先选择返回新数组的做法。</li>
+            <li><strong>认为展开语法会深复制。</strong> 它只复制一层；嵌套引用默认共享。</li>
+            <li><strong>所有键值数据都用普通对象。</strong> 动态任意键、频繁增删或需要明确 size 时 Map 更直接。</li>
+            <li><strong>所有数组逻辑都用 <code>reduce</code>。</strong> 如果 <code>filter</code> + <code>map</code> 或清晰循环更能表达问题，就选更易读的方案。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入类型系统深入部分前，你应当能够：</p>
+          <ul>
+            <li>根据“有序重复”“键到值”“唯一成员”选择 Array、Map 或 Set。</li>
+            <li>预测数组越界、对象身份比较和 Set 对象去重的运行结果。</li>
+            <li>说出常用数组方法是否修改原数组。</li>
+            <li>用对象/数组展开复制所有发生变化的层，并证明原输入未变。</li>
+            <li>解释什么时候局部可变是清晰实现，什么时候领域值应返回新对象。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Working_with_objects">MDN: Working with objects</a>：对象创建、属性与方法。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">MDN: Array</a>：方法是否修改原数组的权威索引。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map">MDN: Map</a>：键语义与迭代顺序。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set">MDN: Set</a>：唯一性与值相等。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax">MDN: Spread syntax</a>：对象与数组浅复制边界。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 04：不修改原数组地添加标签</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-04.ts</code>，把本课示例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>在 <code>src/lesson-04.ts</code> 的示例函数后面导出并实现 <code>addTag(tags: string[], tag: string): string[]</code>，并在导出前添加 <code>/** @lab */</code>，避免示例脚本执行它。</p>
+
+            <h3>一次调用的明确结果</h3>
+            <div class="table-scroll">
+              <table class="comparison-table">
+                <thead><tr><th>阶段</th><th>值</th></tr></thead>
+                <tbody>
+                  <tr><td>输入 tags</td><td><code>["typescript"]</code></td></tr>
+                  <tr><td>输入 tag</td><td><code>" Node "</code></td></tr>
+                  <tr><td>返回 updated</td><td><code>["typescript", "node"]</code></td></tr>
+                  <tr><td>调用后的输入 tags</td><td>仍为 <code>["typescript"]</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3><code>addTag</code> 必须按什么规则工作</h3>
+            <ol>
+              <li>读取传入的 <code>tags</code> 和 <code>tag</code>，不要修改原数组。</li>
+              <li>依次对 <code>tag</code> 执行 <code>trim()</code> 和 <code>toLowerCase()</code>，得到规范化标签。</li>
+              <li>创建新数组：先保留 <code>tags</code> 的全部元素和原顺序，再在末尾追加规范化标签。</li>
+              <li>返回这个新数组。</li>
+            </ol>
+
+            <h3>完成条件</h3>
+            <ul>
+              <li>返回内容精确等于旧元素加规范化后的新标签。</li>
+              <li><code>updated !== tags</code>：返回值必须是新数组。</li>
+              <li>调用前后的输入 <code>tags</code> 内容完全相同；不要对它调用 <code>push</code>。</li>
+              <li>函数内部不要打印内容；公开行为只有返回值。</li>
+            </ul>
+
+            <div class="callout"><strong>本课不处理：</strong>标签去重和空标签拒绝策略。自动验收会传入非空标签；不要自行增加抛错、跳过追加等额外规则。</div>
+          </div>
+          <p>自动验收会检查导出名称、返回内容、数组身份和原输入快照。对象类型、<code>type</code>、<code>interface</code> 与 <code>readonly</code> 将在第 06 课先讲解、再练习，不在这里提前要求。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先规范化新标签</summary>
+            <div class="details-body"><p>把 <code>tag.trim().toLowerCase()</code> 的结果保存到局部变量。字符串方法会返回新字符串，不会修改参数。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 构造新数组</summary>
+            <div class="details-body"><p>数组表达式可以写成 <code>[...tags, normalizedTag]</code>；它会先展开旧元素，再追加新值。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 检查是否改了输入</summary>
+            <div class="details-body"><p>函数只需要返回新数组，不需要调用 <code>push</code>，也不需要重新给输入变量赋值。验收会比较调用前后的原数组快照。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>执行 <code>array.push(value)</code> 后，哪个描述准确？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>直接追加会返回全新数组对象</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>直接追加会修改原有数组对象</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>/** @lab */
+export function addTag(tags: string[], tag: string): string[] {
+  const normalizedTag = tag.trim().toLowerCase();
+
+  return [...tags, normalizedTag];
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1 行</dt><dd>函数接收字符串数组和字符串，返回类型仍是字符串数组；这些都是前面课程已经使用过的类型标注。</dd>
+                <dt>第 2 行</dt><dd>先清理新标签并转成小写；原字符串没有被修改。</dd>
+                <dt>第 4 行</dt><dd>数组展开创建新数组，复制旧元素后追加新标签；输入数组保持原身份和原内容。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 04</code></pre>
+          <p>只验收本课 Lab 导出的 <code>addTag</code>：检查规范化后的返回内容、新数组身份以及调用前后原数组快照。通过后请解释：为什么这里不能直接调用 <code>tags.push(normalizedTag)</code>？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0003-control-flow-functions-scope.html">← 上一课：控制流与函数</a>
+          <a href="0005-type-inference-and-literals.html">下一课：类型推断与字面量 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 04 · Collections and identity · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

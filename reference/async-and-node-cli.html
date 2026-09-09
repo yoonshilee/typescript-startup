@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Promise、async/await、失败传播、Node 文件与 CLI 协议速查。">
+    <title>Reference · 异步与 Node CLI</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#reference">跳到速查正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="参考页导航">
+        <a class="context-link" href="../index.html#references">全部速查</a>
+        <a class="context-link" href="../index.html#route">24 课</a>
+      </nav>
+    </header>
+    <main id="reference" class="reference-shell">
+      <header class="reference-header">
+        <h1>异步与 Node CLI 速查</h1>
+        <p>先写清成功值、失败路径与取消，再决定串行、并发和进程退出行为。</p>
+        <p class="print-note">REFERENCE 06 / 06 · Promise、I/O 与命令协议</p>
+      </header>
+
+      <section>
+        <h2>Promise 与 async/await</h2>
+        <pre><code>async function loadText(url: URL, signal: AbortSignal): Promise&lt;string&gt; {
+  const response = await fetch(url, { signal });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.text();
+}</code></pre>
+        <ul>
+          <li><code>async</code> 函数总是返回 Promise；普通返回值会包装成 fulfilled Promise。</li>
+          <li><code>await</code> 暂停当前 async 函数，不阻塞整个 Node 进程。</li>
+          <li>fetch 只有网络层失败/取消时拒绝；HTTP 404/500 需要检查 <code>response.ok</code>。</li>
+          <li>外部 JSON 的静态类型是 unknown；解析成功不等于结构可信。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>串行还是并发</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>关系</th><th>写法</th><th>含义</th></tr></thead>
+            <tbody>
+              <tr><td>B 依赖 A 结果</td><td>连续两次 await</td><td>必须串行</td></tr>
+              <tr><td>A、B 独立且都必须成功</td><td><code>Promise.all</code></td><td>并发启动，任一失败则整体拒绝</td></tr>
+              <tr><td>需要每项成功/失败结果</td><td><code>Promise.allSettled</code></td><td>等待全部完成</td></tr>
+              <tr><td>只取最先成功</td><td><code>Promise.any</code></td><td>全部失败才拒绝</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>并发不是自动更好：文件写入顺序、速率限制、内存占用和取消语义都会改变选择。</p>
+      </section>
+
+      <section>
+        <h2>失败与清理</h2>
+        <pre><code>try {
+  await writeFile(temporaryPath, content, "utf8");
+  await rename(temporaryPath, targetPath);
+} catch (error: unknown) {
+  throw new Error("Could not save notes.", { cause: error });
+} finally {
+  await rm(temporaryPath, { force: true });
+}</code></pre>
+        <ul>
+          <li><code>catch</code> 值按 unknown 处理；先检查再读取属性。</li>
+          <li>Error 的 <code>cause</code> 保留底层失败链，不把内部细节当公开 CLI 输出。</li>
+          <li><code>finally</code> 用于无论成功失败都需要的清理。</li>
+          <li>可恢复业务失败可用 <code>Result&lt;T, E&gt;</code> 建模；真正异常环境失败可抛 Error。</li>
+          <li><code>AbortSignal</code> 需要沿调用链传递；捕获取消后不要伪装成普通成功。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>文件持久化契约</h2>
+        <pre><code>type NoteFile = {
+  version: 1;
+  notes: Note[];
+};</code></pre>
+        <ol>
+          <li>从可注入路径读取 UTF-8 文本。</li>
+          <li>JSON.parse 后仍当 unknown 验证版本与每条记录。</li>
+          <li>写入同目录临时文件，确保内容完成后 rename 到目标。</li>
+          <li>损坏数据不静默覆盖；返回清楚、稳定的公开错误。</li>
+          <li>测试使用临时目录，不读写真实 <code>data/notes.json</code>。</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>CLI 命令协议</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>命令</th><th>作用</th><th>主要输出</th></tr></thead>
+            <tbody>
+              <tr><td><code>add</code></td><td>创建笔记</td><td>新 note id</td></tr>
+              <tr><td><code>list</code></td><td>按状态列出摘要</td><td>零到多行摘要</td></tr>
+              <tr><td><code>show</code></td><td>查看单条详情</td><td>完整笔记</td></tr>
+              <tr><td><code>search</code></td><td>搜索标题、正文、标签</td><td>匹配摘要</td></tr>
+              <tr><td><code>archive</code></td><td>将状态改为 archived</td><td>确认行</td></tr>
+              <tr><td><code>import</code></td><td>从文件或 URL 导入</td><td>导入数量</td></tr>
+              <tr><td><code>export</code></td><td>导出版本化 JSON</td><td>文件路径或 stdout</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>参数、输出与退出码</h2>
+        <pre><code>import { parseArgs } from "node:util";
+
+const { positionals, values } = parseArgs({
+  allowPositionals: true,
+  options: {
+    data: { type: "string" },
+    json: { type: "boolean", default: false },
+  },
+});</code></pre>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>通道/码</th><th>契约</th></tr></thead>
+            <tbody>
+              <tr><td>stdout</td><td>成功结果；可被管道消费</td></tr>
+              <tr><td>stderr</td><td>诊断与失败消息</td></tr>
+              <tr><td>0</td><td>命令成功</td></tr>
+              <tr><td>1</td><td>运行/数据失败</td></tr>
+              <tr><td>2</td><td>参数或用法错误</td></tr>
+              <tr><td>130</td><td>常用的 SIGINT/取消退出语义</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>公共输出是契约：使用英文、稳定顺序和明确退出码。内部 Error stack 只在调试模式输出。</p>
+      </section>
+
+      <section>
+        <h2>原生测试清单</h2>
+        <ul>
+          <li><code>node:test</code> 运行测试，<code>node:assert/strict</code> 做行为断言。</li>
+          <li><code>mkdtemp</code> 创建隔离目录，测试结束后递归清理明确的临时路径。</li>
+          <li>注入数据路径、时钟和网络边界，不修改真实用户文件。</li>
+          <li>同时覆盖正常命令、空输入、未知 JSON、损坏文件、HTTP 失败、取消和退出码。</li>
+          <li>原子写测试验证目标文件完整、临时文件被清理，而不依赖实现内部函数名。</li>
+        </ul>
+      </section>
+    </main>
+    <footer class="foot-line"><p>Reference 06 · Async and Node CLI · Typescript-Startup</p></footer>
+  </body>
+</html>

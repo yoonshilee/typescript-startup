@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="24 节中文 TypeScript 课程，包含 Java/Python 对照、可运行示例与动手练习。">
+    <title>Typescript-Startup · 24 节 TypeScript 基础课程</title>
+    <link rel="stylesheet" href="assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到课程路线</a>
+    <header class="nav-mast">
+      <p class="mast-line">中文教程 · 可运行练习 · 24 / 24 lessons published</p>
+      <h1 class="mast-name">Typescript-Startup</h1>
+      <nav class="mast-nav" aria-label="主页导航">
+        <ul>
+          <li><a href="#route">课程路线</a></li>
+          <li><a href="#references">六份速查</a></li>
+          <li><a href="#start">开始方法</a></li>
+        </ul>
+      </nav>
+      <div class="mast-rule" aria-hidden="true"></div>
+    </header>
+
+    <main id="main" class="home-main">
+      <section class="home-intro" aria-labelledby="course-title">
+        <h2 id="course-title">从语法开始，逐步理解 TypeScript。</h2>
+        <p>先用变量、函数、集合和类型表达写出可验证的程序；具备足够语言基础后，再深入 TypeScript、JavaScript 与 Node 的职责边界、执行链和工程实践。</p>
+      </section>
+
+      <div class="status-line">
+        <span>LEARNING ORDER · SYNTAX → TYPES → RUNTIME → NODE CLI</span>
+        <span>TYPECHECK · TYPESCRIPT 7</span>
+        <span>RUNTIME · NODE 24.12+</span>
+        <span>PACKAGE MANAGER · PNPM</span>
+        <span>PROJECT · DEVELOPER NOTES CLI</span>
+      </div>
+
+      <section id="route" aria-labelledby="route-title">
+        <div class="route-heading">
+          <h2 id="route-title">24 课完整路线</h2>
+          <p>01–24 课文已全部发布；按语法、类型、运行时、Node 工程的顺序学习，案例与 Lab 在对应的 TS 文件中跟写。</p>
+        </div>
+        <ol class="curriculum-list">
+          <li data-lesson="01" data-status="published"><a href="lessons/0001-typescript-javascript-node.html">基础语法：变量、类型标注、函数与模板字符串</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="02" data-status="published"><a href="lessons/0002-values-operators-truthiness.html">变量、值、运算符、相等性与 truthiness</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="03" data-status="published"><a href="lessons/0003-control-flow-functions-scope.html">条件、循环、函数与返回函数</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="04" data-status="published"><a href="lessons/0004-collections-and-immutability.html">对象、数组、Map、Set 与不可变更新</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="05" data-status="published"><a href="lessons/0005-type-inference-and-literals.html">类型推断、显式标注、字面量拓宽与 as const</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="06" data-status="published"><a href="lessons/0006-object-types-and-contracts.html">对象类型、type、interface、可选、只读与 satisfies</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="07" data-status="published"><a href="lessons/0007-unions-narrowing-and-never.html">联合类型、判别联合、收窄、never 与穷尽检查</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="08" data-status="published"><a href="lessons/0008-null-undefined-unknown-boundaries.html">null、undefined、unknown、any 与边界处理</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="09" data-status="published"><a href="lessons/0009-function-types-generics-overloads.html">函数类型、回调、重载、泛型与高阶函数</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="10" data-status="published"><a href="lessons/0010-generic-constraints-keyof-type-queries.html">泛型约束、keyof、索引访问与类型查询</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="11" data-status="published"><a href="lessons/0011-utility-mapped-types-safe-updates.html">工具类型、映射类型与安全更新</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="12" data-status="published"><a href="lessons/0012-conditional-infer-template-literal-types.html">条件类型、infer 与模板字面量类型</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="13" data-status="published"><a href="lessons/0013-javascript-node-execution-model.html">JavaScript / Node 执行模型：类型擦除、作用域、闭包与原型</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="14" data-status="published"><a href="lessons/0014-esm-package-boundaries-module-resolution.html">ESM、包边界、类型导入与模块解析</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="15" data-status="published"><a href="lessons/0015-event-loop-promises-async-fetch.html">事件循环、Promise、async/await 与 fetch</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="16" data-status="published"><a href="lessons/0016-error-result-abort-signal.html">Error、Result、AbortSignal 与失败传播</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="17" data-status="published"><a href="lessons/0017-package-pnpm-tsconfig-check-build.html">package.json、pnpm、tsconfig、检查与构建</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="18" data-status="published"><a href="lessons/0018-node-files-path-process-json.html">Node 文件、路径、进程、JSON 与持久化</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="19" data-status="published"><a href="lessons/0019-parseargs-stdio-exit-codes.html">parseArgs、标准输入输出、退出码与命令协议</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="20" data-status="published"><a href="lessons/0020-node-test-assert-temp-debug.html">node:test、断言、临时目录与调试</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="21" data-status="published"><a href="lessons/0021-api-unknown-runtime-validation.html">Web/API 边界与 unknown 运行时校验</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="22" data-status="published"><a href="lessons/0022-versioned-files-atomic-write-recovery.html">版本化文件、损坏数据、原子写入与恢复</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="23" data-status="published"><a href="lessons/0023-bin-shebang-build-cross-platform.html">bin、shebang、编译产物与跨平台路径</a><span class="course-state published">已发布</span></li>
+          <li data-lesson="24" data-status="published"><a href="lessons/0024-cli-acceptance-refactor-agent-map.html">完整 CLI 验收、重构与 Agent 能力地图</a><span class="course-state published">已发布</span></li>
+        </ol>
+      </section>
+
+      <section id="references" aria-labelledby="reference-title">
+        <div class="route-heading">
+          <h2 id="reference-title">六份可打印 Reference</h2>
+          <p>忘记细节时查；第一次理解仍以 Lesson 为准。</p>
+        </div>
+        <div class="reference-index">
+          <a href="reference/glossary.html">课程术语表</a>
+          <a href="reference/javascript-runtime.html">JavaScript 运行时</a>
+          <a href="reference/type-system.html">TypeScript 类型系统</a>
+          <a href="reference/narrowing-and-generics.html">收窄与泛型</a>
+          <a href="reference/modules-and-toolchain.html">模块与工具链</a>
+          <a href="reference/async-and-node-cli.html">异步与 Node CLI</a>
+        </div>
+      </section>
+
+      <section id="start" class="start-panel" aria-labelledby="start-title">
+        <div>
+          <h2 id="start-title">读一课，写代码，再验证</h2>
+          <p>准备 Node.js 24.12 以上的 24.x 与 pnpm 11.22.0，在项目根目录启动课程。保存 src/lesson-NN.ts 后，点击示例按钮观察输出，再用 pnpm lesson NN 验收 Lab。已有练习可能直接通过；缺少源码或 Lab 时，按课文继续完成即可。</p>
+          <p><a href="lessons/0001-typescript-javascript-node.html">进入第 01 课 →</a></p>
+        </div>
+        <pre><code>pnpm install --frozen-lockfile
+pnpm validate
+pnpm course</code></pre>
+      </section>
+    </main>
+
+    <footer class="foot-dense mono">
+      <p>Typescript-Startup · 24 LESSONS · HTML + TYPESCRIPT LABS · NODE 24 LTS · TYPESCRIPT 7</p>
+    </footer>
+    <script src="assets/course.js" defer></script>
+  </body>
+</html>

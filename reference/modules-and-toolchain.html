@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="ESM、package.json、pnpm、tsconfig、检查、测试与构建速查。">
+    <title>Reference · 模块与工具链</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#reference">跳到速查正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="参考页导航">
+        <a class="context-link" href="../index.html#references">全部速查</a>
+        <a class="context-link" href="../index.html#route">24 课</a>
+      </nav>
+    </header>
+    <main id="reference" class="reference-shell">
+      <header class="reference-header">
+        <h1>模块与工具链速查</h1>
+        <p>把“解析哪个文件”“检查什么契约”“执行什么代码”“发布什么产物”分开诊断。</p>
+        <p class="print-note">REFERENCE 05 / 06 · ESM、pnpm、TypeScript 7</p>
+      </header>
+
+      <section>
+        <h2>ESM 最小模型</h2>
+        <pre><code>// src/model.ts
+export type NoteId = string;
+export function formatId(id: NoteId): string {
+  return `note:${id}`;
+}
+
+// src/cli.ts
+import { formatId } from "./model.ts";
+import type { NoteId } from "./model.ts";</code></pre>
+        <ul>
+          <li><code>package.json</code> 的 <code>"type": "module"</code> 把 <code>.js</code> 文件解释为 ESM。</li>
+          <li>本课程源码导入写真实 <code>.ts</code> 扩展名，Node 24 可直接执行。</li>
+          <li><code>rewriteRelativeImportExtensions</code> 在构建时把相对 <code>.ts</code> 改写为 <code>.js</code>。</li>
+          <li><code>import type</code> 明确只存在于静态层，运行产物不发起该导入。</li>
+          <li>模块边界应围绕职责，不为每个一行函数创建文件。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>配置文件各自负责什么</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>文件</th><th>职责</th><th>关键问题</th></tr></thead>
+            <tbody>
+              <tr><td><code>package.json</code></td><td>包身份、Node 基线、脚本、依赖、bin</td><td>如何安装和运行？</td></tr>
+              <tr><td><code>pnpm-lock.yaml</code></td><td>解析后的精确依赖图</td><td>另一台机器装到什么？</td></tr>
+              <tr><td><code>tsconfig.json</code></td><td>编辑器与严格检查契约</td><td>哪些源码规则必须成立？</td></tr>
+              <tr><td><code>tsconfig.build.json</code></td><td>构建输入、输出目录与 source map</td><td>发布什么 JavaScript？</td></tr>
+              <tr><td><code>.gitignore</code></td><td>排除可生成或本地状态</td><td>哪些内容不进入版本控制？</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>命令矩阵</h2>
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead><tr><th>命令</th><th>回答的问题</th><th>初始课程状态</th></tr></thead>
+            <tbody>
+              <tr><td><code>pnpm validate</code></td><td>HTML、链接与课程契约是否完整</td><td>绿色</td></tr>
+              <tr><td><code>pnpm lesson NN</code></td><td>当前 Lab 的公开行为是否实现</td><td>对应 TODO 时红色</td></tr>
+              <tr><td><code>pnpm typecheck</code></td><td>所有静态契约是否成立</td><td>绿色</td></tr>
+              <tr><td><code>pnpm test</code></td><td>全部已发布 Lab 行为是否成立</td><td>TODO 未完成时红色</td></tr>
+              <tr><td><code>pnpm build</code></td><td>是否能生成 dist JavaScript</td><td>绿色</td></tr>
+              <tr><td><code>pnpm check</code></td><td>课程、测试、构建、CLI smoke 是否全部完成</td><td>课程完成前红色</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>严格配置的意图</h2>
+        <dl class="line-notes">
+          <dt>strict</dt><dd>启用严格类型检查家族，拒绝大量隐式不安全状态。</dd>
+          <dt>noUncheckedIndexedAccess</dt><dd>索引读取加入 undefined，贴近 JavaScript 越界现实。</dd>
+          <dt>exactOptionalPropertyTypes</dt><dd>区分属性缺失与属性存在但值为 undefined。</dd>
+          <dt>verbatimModuleSyntax</dt><dd>让导入导出按源码意图保留，类型导入显式书写。</dd>
+          <dt>erasableSyntaxOnly</dt><dd>限制为 Node 能通过删除类型直接执行的语法。</dd>
+          <dt>noUncheckedSideEffectImports</dt><dd>检查仅副作用导入是否能解析。</dd>
+        </dl>
+      </section>
+
+      <section>
+        <h2>诊断顺序</h2>
+        <ol>
+          <li>确认当前 Node：<code>node --version</code>，必须符合 package engines。</li>
+          <li>确认依赖图：<code>pnpm install --frozen-lockfile</code>。</li>
+          <li>单独运行最窄命令，不从 <code>pnpm check</code> 的尾部错误猜原因。</li>
+          <li>模块找不到时检查导入扩展名、package type 与实际文件大小写。</li>
+          <li>编辑器与 CLI 结论冲突时，以仓库脚本输出为可复现证据。</li>
+          <li>构建成功但运行失败时，检查 dist 导入与运行时输入；类型已不在场。</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Node 24 原生执行与构建</h2>
+        <pre><code>node src/cli.ts --help  # strip erasable types, then run
+tsc --noEmit            # check only
+tsc -p tsconfig.build.json # emit dist/*.js</code></pre>
+        <p>三条命令不互相替代。开发阶段可直接运行获得短反馈；发布 <code>bin</code> 时使用普通 JavaScript 构建产物，减少目标机器对 TypeScript 运行支持的假设。</p>
+      </section>
+    </main>
+    <footer class="foot-line"><p>Reference 05 · Modules and Toolchain · Typescript-Startup</p></footer>
+  </body>
+</html>

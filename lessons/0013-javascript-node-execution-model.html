@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 13 课：JavaScript 与 Node 的类型擦除、词法作用域、调用栈、闭包和原型链。">
+    <title>第 13 课 · JavaScript / Node 执行模型</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/javascript-runtime.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 13 / 24</p>
+          <p class="lesson-meta">建议 100 分钟<br>从类型回到执行<br>Lab 13</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 13</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>类型检查结束后，真正运行的是 JavaScript</h1>
+          <p class="lesson-lead">Node 创建执行上下文、压入函数调用、按词法作用域寻找绑定，并沿对象原型链查找属性。TypeScript 类型帮助编译器拒绝错误，却不会进入调用栈、闭包或对象；理解这条边界，才能预测程序实际做什么。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-13.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>createNoteFactory(prefix)</code>，返回一个会记住 prefix 与独立序号状态的函数，每次调用都创建新的带序号笔记对象。</p>
+          <ul>
+            <li>区分 TypeScript 检查阶段、类型擦除与 Node 执行阶段。</li>
+            <li>按词法位置解释块作用域与嵌套函数的名称查找。</li>
+            <li>用调用帧预测同步函数的进入、返回和局部绑定生命周期。</li>
+            <li>解释闭包保存的是外层绑定的引用关系，不是值快照。</li>
+            <li>区分对象自有属性、原型属性、class 语法与结构类型。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 65 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：第 12 课的类型关系不会变成运行时对象</h2>
+          <pre><code>export function demoErasedAlias(): string {
+  type EventName = `note:${string}`;
+  const event: EventName = "note:add";
+
+  return typeof event;
+}</code></pre>
+          <p>运行结果是 "string"，不是 "EventName"。type 别名只参与检查，不能传给 typeof、instanceof 或 console.log。Node 最终处理的是字符串值 event；这一课开始专门追踪这些运行时值和绑定。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：检查、擦除、执行、查找</h2>
+
+          <h3>1. 同一份 .ts 文件经历两个不同问题</h3>
+          <ol>
+            <li><strong>TypeScript 检查：</strong>参数、返回值、联合与泛型关系是否成立？</li>
+            <li><strong>类型擦除或编译：</strong>类型标注和 type/import type 等静态语法不进入 JavaScript。</li>
+            <li><strong>Node 执行：</strong>值如何创建，函数以什么顺序调用，属性在哪里查找？</li>
+          </ol>
+          <pre><code>export function demoErasableSyntax(): string {
+  function normalizeTitle(title: string): string {
+    return title.trim();
+  }
+
+  return normalizeTitle(" Draft ");
+}</code></pre>
+          <p>Node 24 对可擦除 TypeScript 语法做轻量 type stripping，但不会替你做类型检查，也不会读取 tsconfig。课程因此把 <code>pnpm typecheck</code> 与 <code>pnpm examples NN</code> 分成两个明确命令。</p>
+
+          <h3>2. typeof 只认识运行时类别</h3>
+          <pre><code>export function demoRuntimeTypes(): string[] {
+  type NoteId = string;
+  const id: NoteId = "n1";
+  const tags = ["typescript"];
+  const create = () =&gt; ({ id });
+
+  return [typeof id, typeof tags, typeof create];
+}</code></pre>
+          <p>结果是 ["string", "object", "function"]。typeof 不知道 NoteId 或 string[]；数组在 JavaScript 中是对象，需要 Array.isArray 才能进一步判断。静态类型名在执行前已消失。</p>
+
+          <h3>3. 词法作用域由源码嵌套位置决定</h3>
+          <pre><code>export function demoLexicalScope(): string[] {
+  const status = "outer";
+  const values = [status];
+
+  {
+    const status = "inner";
+    values.push(status);
+  }
+
+  values.push(status);
+  return values;
+}</code></pre>
+          <p>块内 status 遮蔽外层绑定，但没有改写它，所以结果是 ["outer", "inner", "outer"]。名称查找从当前位置向外层词法环境移动；它不根据“谁调用了函数”动态改变。</p>
+
+          <h3>4. 每次同步函数调用都有独立局部绑定</h3>
+          <pre><code>export function demoCallOrder(): string[] {
+  const trace: string[] = [];
+
+  function normalizeTitle(title: string): string {
+    trace.push("normalize:start");
+    const normalized = title.trim();
+    trace.push("normalize:end");
+    return normalized;
+  }
+
+  function createTitle(title: string): string {
+    trace.push("create:start");
+    const normalized = normalizeTitle(title);
+    trace.push("create:end");
+    return normalized;
+  }
+
+  const title = createTitle(" Draft ");
+  return [...trace, title];
+}</code></pre>
+          <p>同步顺序是 create:start、normalize:start、normalize:end、create:end、Draft。normalizeTitle 返回后，它的普通局部绑定可回收；createTitle 随后继续。Promise 与事件循环会在第 15 课加入，此处只有同步调用栈。</p>
+
+          <h3>5. 闭包捕获外层绑定，因此能看到后续赋值</h3>
+          <pre><code>export function demoLiveClosureBinding(): string {
+  let status = "draft";
+  const readStatus = () =&gt; status;
+
+  status = "published";
+  return readStatus();
+}</code></pre>
+          <p>结果是 "published"。readStatus 不是保存 "draft" 的深拷贝，而是保留对外层 status 绑定的访问。调用发生时再读取当前值。</p>
+
+          <h3>6. 外层调用结束后，被捕获的绑定仍可存活</h3>
+          <pre><code>export function demoCounters() {
+  function createCounter(start: number): () =&gt; number {
+    let current = start;
+    return () =&gt; {
+      current += 1;
+      return current;
+    };
+  }
+
+  const next = createCounter(10);
+  const first = createCounter(0);
+  const second = createCounter(0);
+  return {
+    sequence: [next(), next(), next()],
+    independent: [first(), first(), second(), first(), second()],
+  };
+}</code></pre>
+          <p>createCounter 已返回，但内部函数仍引用 current，所以结果中的 <code>sequence</code> 是 [11, 12, 13]。只要返回函数仍可达，它需要的词法环境就不能被回收。</p>
+          <h4>每次外层调用创建一组独立绑定</h4>
+
+          <p><code>independent</code> 是 [1, 2, 1, 3, 2]。first 与 second 来自两次 createCounter 调用，各自捕获不同 current；它们没有共享全局计数器。</p>
+
+          <h3>7. 闭包捕获对象绑定时，看到的是同一个对象引用</h3>
+          <pre><code>export function demoCapturedReference(): number[] {
+  const settings = { limit: 10 };
+  const readLimit = () =&gt; settings.limit;
+  const before = readLimit();
+
+  settings.limit = 20;
+  return [before, readLimit()];
+}</code></pre>
+          <p>结果是 [10, 20]。闭包能通过 settings 绑定访问同一对象；修改属性不会替换绑定。这里与第 04 课的对象引用模型完全一致。</p>
+
+          <h3>8. class 创建真实构造函数，方法位于 prototype</h3>
+          <pre><code>export function demoPrototype() {
+  class Note {
+    title: string;
+
+    constructor(title: string) {
+      this.title = title;
+    }
+
+    describe(): string {
+      return this.title;
+    }
+  }
+
+  type NoteShape = { title: string };
+  const note = new Note("Draft");
+  const first = note;
+  const second = new Note("Release");
+  const plain: NoteShape = { title: "Draft" };
+  const instance: NoteShape = second;
+  const copy = { ...note };
+  return {
+    lookup: [Object.hasOwn(note, "title"), Object.hasOwn(note, "describe"), note.describe()],
+    shared: [first.describe === second.describe, Object.getPrototypeOf(first) === Note.prototype],
+    instances: [plain instanceof Note, instance instanceof Note],
+    spread: ["describe" in copy, copy instanceof Note],
+  };
+}</code></pre>
+          <p><code>lookup</code> 是 [true, false, "Draft"]：title 在构造时写入实例，是自有属性；describe 存在于 Note.prototype，沿原型链仍能找到并调用它。class 是原型机制上更清楚的语法，不是 Java 式静态类型容器。</p>
+          <p>同一个 Note 类依次检查 lookup、shared、instances、spread 四组结果。各组含义在下方分开解释，类只需写一次。</p>
+          <h4>同一 class 的实例共享原型方法函数</h4>
+
+          <p><code>shared</code> 的两项都是 true。每个实例有自己的 title，但 describe 函数只存一份在共享原型上。读取 first.describe 时，运行时先检查实例，再沿 [[Prototype]] 找到 Note.prototype.describe。</p>
+          <h4>结构类型相同，不代表运行时 instanceof 相同</h4>
+
+          <p>两个值都满足 NoteShape，但 <code>instances</code> 是 [false, true]。TypeScript 的结构赋值关系已擦除；instanceof 检查的是 Note.prototype 是否出现在对象的运行时原型链中。</p>
+          <h4>对象展开不会保留 class 原型</h4>
+
+          <p><code>spread</code> 的两项都是 false。展开只复制自有可枚举属性 title，不复制 [[Prototype]]；因此第 11 课的更新函数明确只面向普通数据对象。</p>
+
+          <h3>9. 从对象上拆下依赖 this 的方法会失去接收者</h3>
+          <pre><code>/** @example-skip */
+function demoDetachedMethod(): string {
+  class Note {
+    title = "Draft";
+
+    describe(): string {
+      return this.title;
+    }
+  }
+
+  const note = new Note();
+  const describe = note.describe;
+  return describe();
+}</code></pre>
+          <p>模块以严格模式执行，独立调用 describe 时 this 是 undefined，因此该案例会抛错。它保持非导出并标记 <code>/** @example-skip */</code>，不会被自动 runner 执行；危险行为仍可见，而不是藏进正常案例。</p>
+
+          <h3>10. bind 显式创建固定接收者的新函数</h3>
+          <pre><code>export function demoBoundMethod(): string {
+  class Note {
+    title = "Draft";
+
+    describe(): string {
+      return this.title;
+    }
+  }
+
+  const note = new Note();
+  const describe = note.describe.bind(note);
+  return describe();
+}</code></pre>
+          <p>bind 返回一个新函数，把之后调用时的 this 固定为 note。若不需要动态接收者，闭包 <code>() =&gt; note.describe()</code> 也能清楚表达同一意图。</p>
+          <div class="callout"><strong>执行边界：</strong>类型不会捕获状态、创建原型或修复 this；这些行为都来自 JavaScript 值、函数创建位置、调用方式和对象链。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>JavaScript / TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>静态类型运行时是否存在</td><td>部分泛型擦除，class 仍是运行时类</td><td>注解通常可检查或反射</td><td>TS 类型完全擦除，JS 值照常运行</td></tr>
+                <tr><td>名称查找</td><td>块、方法与类作用域</td><td>LEGB 词法查找</td><td>块与函数词法环境向外查找</td></tr>
+                <tr><td>保存私有状态</td><td>实例字段</td><td>对象字段或 closure</td><td>对象字段、private field 或 closure</td></tr>
+                <tr><td>方法复用</td><td>类方法表与虚方法分派</td><td>类属性与描述符协议</td><td>对象沿 prototype chain 查找函数属性</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>熟悉 Java 时最容易误把 TypeScript type 当成 JVM class；熟悉 Python 时最容易忽略 JavaScript 的 this 取决于调用形式。最可靠的方法是分别问：编译器现在知道什么？运行时此刻拥有哪些值、绑定与原型？</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：for 循环中的 let 为每轮创建独立绑定</h3>
+            <pre><code>export function demoLoopClosureBindings(): number[] {
+  const readers: Array&lt;() =&gt; number&gt; = [];
+
+  for (let index = 0; index &lt; 3; index += 1) {
+    readers.push(() =&gt; index);
+  }
+
+  return readers.map((read) =&gt; read());
+}</code></pre>
+            <p>结果是 [0, 1, 2]。let 在每次迭代提供新的 index 绑定，每个闭包引用对应一轮；这不同于旧代码中函数作用域 var 让所有闭包共享一个最终绑定。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：Lab 所需的状态属于每个工厂闭包</h3>
+            <pre><code>export function demoFactoryState(): string[] {
+  function createFactory(prefix: string): (title: string) =&gt; string {
+    let nextId = 1;
+    return (title) =&gt; `${prefix}-${nextId++}:${title}`;
+  }
+
+  const createCourse = createFactory("course");
+  const createWork = createFactory("work");
+  return [
+    createCourse("Draft"),
+    createCourse("Release"),
+    createWork("Plan"),
+  ];
+}</code></pre>
+            <p>结果是 course-1:Draft、course-2:Release、work-1:Plan。prefix 与 nextId 都由各自闭包保存；不需要全局变量或工厂类。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 13</code></pre>
+            <p>脚本按源码顺序执行导出的无参案例；危险的 detached method 已用 <code>/** @example-skip */</code> 排除，带 <code>/** @lab */</code> 的参数化 Lab 也不会误执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>用 Node 执行成功代替类型检查。</strong> type stripping 不会报告类型错误。</li>
+            <li><strong>认为 type 或 interface 可以被 typeof 检查。</strong> 它们没有运行时值。</li>
+            <li><strong>把词法作用域理解为调用者作用域。</strong> 名称查找取决于函数定义位置。</li>
+            <li><strong>认为闭包保存变量当时的值副本。</strong> 它保留对绑定的访问，能看到后续赋值。</li>
+            <li><strong>把两次工厂调用误认为共享同一局部状态。</strong> 每个调用创建独立词法环境。</li>
+            <li><strong>认为类型只读会冻结闭包中的对象。</strong> readonly 不改变运行时引用或属性。</li>
+            <li><strong>认为 class 方法复制到每个实例。</strong> 普通方法位于共享 prototype。</li>
+            <li><strong>把结构可赋值等同于 instanceof。</strong> instanceof 只检查运行时原型链。</li>
+            <li><strong>随手拆下使用 this 的方法。</strong> 独立调用会失去原接收者。</li>
+            <li><strong>用对象展开克隆 class 实例。</strong> 展开不会复制原型和非枚举成员。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入 ESM、包边界与模块解析前，你应当能够：</p>
+          <ul>
+            <li>分别描述 TypeScript 检查、类型擦除与 Node 执行的职责。</li>
+            <li>解释为什么 Node 直接运行 .ts 仍不能替代 <code>pnpm typecheck</code>。</li>
+            <li>按源码嵌套位置追踪块作用域和函数作用域中的绑定。</li>
+            <li>用调用顺序解释同步函数何时创建和结束局部调用帧。</li>
+            <li>预测闭包在后续赋值、对象修改和多次工厂调用中的结果。</li>
+            <li>区分自有属性、原型属性和沿链查找。</li>
+            <li>解释 class 实例共享方法、instanceof 与结构类型之间的边界。</li>
+            <li>识别 detached method 的 this 风险，并选择 bind 或闭包。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/typescript.html">Node.js 24: Modules — TypeScript</a>：稳定 type stripping、无类型检查与 tsconfig 边界。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/typescript-from-scratch">TypeScript for the New Programmer</a>：运行时行为保持与类型擦除。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Closures">MDN: Closures</a>：词法环境、绑定捕获与私有状态。</li>
+            <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Inheritance_and_the_prototype_chain">MDN: Inheritance and the Prototype Chain</a>：自有属性、[[Prototype]] 与 class。</li>
+            <li><a href="https://tc39.es/ecma262/#sec-execution-contexts">ECMAScript: Execution Contexts</a>：执行上下文与规范术语。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 13：创建拥有独立序号状态的笔记工厂</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-13.ts</code>，把本课案例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>导出一个结果类型和工厂函数：</p>
+            <pre><code>type CreatedNote = {
+  readonly id: string;
+  title: string;
+};
+
+createNoteFactory(
+  prefix: string,
+): (title: string) =&gt; CreatedNote</code></pre>
+
+            <h3>运行规则</h3>
+            <ol>
+              <li>每次 createNoteFactory 调用创建自己的 <code>nextId</code>，初始值为 1。</li>
+              <li>返回函数每次创建一个新对象，id 为 <code>prefix-nextId</code>，title 原样保留。</li>
+              <li>创建对象后把该闭包的 nextId 增加 1。</li>
+              <li>同一工厂连续得到 1、2、3；另一个工厂从自己的 1 开始。</li>
+            </ol>
+
+            <h3>类型与实现限制</h3>
+            <ul>
+              <li>prefix 与 title 都必须是 string，结果 id 对调用方只读。</li>
+              <li>不要 trim、转换大小写或修改 prefix/title。</li>
+              <li>不要使用全局变量、class、静态属性、数组历史、Map、any、unknown 或类型断言。</li>
+              <li>Lab 函数前保留 <code>/** @lab */</code>，让自动示例 runner 跳过它。</li>
+            </ul>
+          </div>
+          <p>一个闭包和一个数字绑定已经满足需求。第 14 课会把这个工厂放进真实 ESM 模块，并解释导入时模块如何被解析与复用。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 状态写在哪里</summary>
+            <div class="details-body"><p>在 createNoteFactory 函数体内、返回函数外声明 <code>let nextId = 1</code>。这样每次工厂调用得到独立绑定。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 先创建对象，再更新序号</summary>
+            <div class="details-body"><p>返回函数先用当前 nextId 创建 note，再执行 <code>nextId += 1</code>，最后返回 note；顺序能避免第一个 id 从 2 开始。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 字符串与对象都无需额外工具</summary>
+            <div class="details-body"><p>id 用模板字符串 <code>`${prefix}-${nextId}`</code>，结果用普通对象字面量 <code>{ id, title }</code>。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>JavaScript 闭包保存的核心关系是什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>函数创建时对外层词法环境变量的持续引用关系</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>函数返回时对外层局部变量当前值的完整深拷贝</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>export type CreatedNote = {
+  readonly id: string;
+  title: string;
+};
+
+/** @lab */
+export function createNoteFactory(
+  prefix: string,
+): (title: string) =&gt; CreatedNote {
+  let nextId = 1;
+
+  return (title) =&gt; {
+    const note = {
+      id: `${prefix}-${nextId}`,
+      title,
+    };
+    nextId += 1;
+    return note;
+  };
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1–4 行</dt><dd>CreatedNote 描述返回数据；readonly id 是静态写入限制，不会冻结对象。</dd>
+                <dt>第 6 行</dt><dd>@lab 让示例 runner 排除这个带参数函数。</dd>
+                <dt>第 7–9 行</dt><dd>工厂接收 prefix，并返回接收 title 的函数；两层签名对应两个调用阶段。</dd>
+                <dt>第 10 行</dt><dd>每次外层调用创建独立 nextId 绑定，初始值为 1。</dd>
+                <dt>第 12–16 行</dt><dd>返回闭包读取 prefix 与当前 nextId，创建新的普通对象并原样保存 title。</dd>
+                <dt>第 17–18 行</dt><dd>只更新当前闭包的 nextId，再返回新对象；另一工厂的状态不受影响。</dd>
+                <dt>第 19–20 行</dt><dd>内外函数结束；没有全局状态、类、集合或类型断言。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 13
+pnpm examples 13</code></pre>
+          <p>Lab 验收检查第一个与后续序号、title 原样保留、新对象身份、两个工厂的独立状态、继续调用后的序号，以及 prefix/title 参数、CreatedNote 结果和 readonly id 类型契约。通过后请说明：外层调用已经返回，nextId 为什么仍然存在？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0012-conditional-infer-template-literal-types.html">← 上一课：条件类型与模板字面量类型</a>
+          <a href="0014-esm-package-boundaries-module-resolution.html">下一课：ESM 与模块解析 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 13 · JavaScript and Node execution model · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

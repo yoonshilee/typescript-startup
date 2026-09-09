@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="TypeScript 第 23 课：bin、shebang、编译产物与跨平台路径。"><title>Lesson 23 · bin、shebang、编译产物与跨平台路径</title><link rel="stylesheet" href="../assets/course.css?v=4"></head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a><header class="topbar"><a class="brand" href="../index.html">Typescript-Startup</a><nav aria-label="课程导航"><a href="../index.html#route">课程目录</a><a href="../reference/modules-and-toolchain.html">本课速查</a></nav></header>
+    <main class="lesson-layout">
+      <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 23 / 24</p><p>建议 90 分钟</p><p>用户运行的是产物</p><p>Lab 23</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
+      <article id="lesson" class="lesson-paper">
+        <header class="lesson-title"><p class="eyebrow">PACKAGE BIN · SHEBANG · DIST · CROSS-PLATFORM</p><h1>可安装 CLI 的公开入口是编译后的 JavaScript 文件</h1><p class="lead">开发时 Node 24 可以直接运行可擦除 TypeScript，但包的 bin 契约应指向构建产物。shebang 让类 Unix shell 选择 Node，pnpm/npm 创建命令链接，path 与 file URL API 处理平台差异。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-23.ts</code>。路径实验保持顶层零参数导出；接收 projectRoot 的 Lab 用 <code>/** @lab */</code>。</div></header>
+
+        <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>resolveCliPaths(projectRoot)</code>，分别返回绝对源码路径、绝对构建产物路径与 package bin 的相对目标。</p><ul><li>理解 package.json bin 指向什么。</li><li>说明 shebang 在 Unix 与 Windows 命令 shim 中的不同作用。</li><li>追踪 src/cli.ts 到 dist/cli.js。</li><li>区分文件系统路径、文件 URL 与 ESM 模块说明符。</li></ul></section>
+
+        <section id="recall" class="lesson-section"><h2>前置回忆：rootDir 保留相对目录结构</h2><pre><code>export function demoEmitMapping(): string {
+  return "src/cli.ts -&gt; dist/cli.js";
+}</code></pre><p>第 17 课的 build 配置把 src 作为 rootDir、dist 作为 outDir。bin 必须指向构建后实际存在的路径。</p></section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：命令名 → 链接 → bin 目标 → Node</h2>
+          <h3>1. bin 映射公开命令名</h3><pre><code>export function demoBinManifest(): object {
+  return { bin: { notes: "./dist/cli.js" } };
+}</code></pre><p>安装包时，包管理器为 notes 创建可执行链接或 Windows shim。目标是包内相对路径，不是开发机绝对路径。</p>
+
+          <h3>2. shebang 必须位于产物第一行</h3><pre><code>export function demoShebang(): string {
+  return "#!/usr/bin/env node";
+}</code></pre><p>类 Unix 直接执行文件时由内核读取这一行；Windows 通常由包管理器生成的 shim 启动 Node。TypeScript 会把 shebang 保留到 JavaScript 产物。</p>
+
+          <h3>3. 文件系统路径交给 node:path</h3><pre><code>import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+export function demoPaths() {
+  const filePath = path.resolve("dist", "cli.js");
+  const fileUrl = pathToFileURL(filePath);
+  return {
+    absolute: filePath,
+    bin: "./dist/cli.js",
+    name: path.basename(filePath),
+    url: fileUrl.href,
+    roundTrip: fileURLToPath(fileUrl) === filePath,
+  };
+}</code></pre>
+          <p>path.resolve 使用当前平台规则并产生绝对路径。不要在领域逻辑中假定 <code>/</code> 或盘符。</p>
+          <p>围绕同一个入口依次看 absolute、bin、name、url 与 roundTrip；不必为每种路径表示重新声明一套文件名。</p>
+          <h4>import.meta.url 是 URL，不是普通路径</h4><p>模块位置从 import.meta.url 开始时先用 fileURLToPath；需要动态 import 路径时反向用 pathToFileURL。不要手工移除 <code>file://</code>。</p>
+          <h4>绝对入口与包内目标不同</h4><p>前者用于当前机器文件操作；后者存入可搬移的 package.json。</p>
+          <h4>basename 可验证产物名</h4><p>name 是 cli.js，roundTrip 是 true；测试不应硬编码整个机器绝对路径。</p>
+
+          <h3>4. ESM 相对导入写运行时扩展名</h3><pre><code>export function demoRuntimeSpecifier(): string {
+  return "import { main } from './main.js'";
+}</code></pre><p>Node 最终解析 JavaScript 文件。当前 TypeScript 配置允许源码使用可重写扩展名，但构建产物必须形成 Node 可解析的说明符。</p>
+          <div class="callout"><strong>验收链：</strong>pnpm build → dist/cli.js 存在且首行 shebang → package bin 指向该文件 → 临时安装后运行 notes --help。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section"><h2>Java / Python 对照</h2><div class="table-scroll"><table class="comparison-table"><thead><tr><th>职责</th><th>Java</th><th>Python</th><th>Node 包</th></tr></thead><tbody><tr><td>发布入口</td><td>jar Main-Class</td><td>console_scripts</td><td>package.json bin</td></tr><tr><td>启动解释器</td><td>java -jar</td><td>shebang/launcher</td><td>shebang/shim</td></tr><tr><td>产物</td><td>class/jar</td><td>wheel + py</td><td>dist JavaScript</td></tr><tr><td>路径</td><td>Path</td><td>pathlib</td><td>node:path / node:url</td></tr></tbody></table></div></section>
+
+        <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
+
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 23</code></pre><p>所有路径案例都无需参数并可执行；projectRoot Lab 用 <code>/** @lab */</code> 排除。</p></div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>bin 指向 src/cli.ts。</strong>消费者不应依赖 TypeScript 运行支持。</li><li><strong>shebang 前有空行。</strong>Unix 内核不会把它识别为解释器声明。</li><li><strong>手工拼接绝对路径。</strong>Windows 盘符与分隔符会出错。</li><li><strong>把 file URL 当路径。</strong>百分号编码与平台格式会被破坏。</li><li><strong>只验证 node dist/cli.js。</strong>还要验证包管理器创建的命令入口。</li><li><strong>提交所有构建产物。</strong>课程仓库只需可重建并在验收时生成。</li></ul></section>
+
+        <section id="contract" class="lesson-section"><h2>Learning Contract</h2><p>进入最终验收前，你应能从公开命令名追踪到 bin 与 dist 文件，解释 shebang 和 Windows shim 的职责，正确区分项目绝对路径、包内相对目标与 file URL。</p></section>
+
+        <section id="sources" class="lesson-section"><h2>官方资料</h2><ul><li><a href="https://docs.npmjs.com/cli/v11/configuring-npm/package-json#bin">npm package.json bin</a>：命令映射与 shebang 要求。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/packages.html">Node.js Packages</a>：包边界与模块系统。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/path.html">Node.js Path</a>：平台路径。</li><li><a href="https://nodejs.org/download/release/latest-v24.x/docs/api/url.html#urlfileurltopathurl-options">Node.js fileURLToPath</a>：文件 URL 转换。</li></ul></section>
+
+        <section id="lab" class="lesson-section lab-section"><h2>Lab 23：解析 CLI 源码、产物与 bin 路径</h2><p><strong>由你创建或修改：</strong>创建 <code>src/lesson-23.ts</code>，保存案例、CliPaths 与 Lab。</p><p><strong>不要修改：</strong><code>tests/lessons.test.ts</code>、构建配置或 package.json。</p>
+          <h3>你要交付什么</h3><pre><code>type CliPaths = {
+  readonly source: string;
+  readonly output: string;
+  readonly binTarget: "./dist/cli.js";
+};
+
+resolveCliPaths(projectRoot: string): CliPaths</code></pre>
+          <h3>运行规则</h3><ul><li>先用 <code>path.resolve(projectRoot)</code> 规范化根目录。</li><li>source 用 path.join 指向 src/cli.ts。</li><li>output 用 path.join 指向 dist/cli.js。</li><li>binTarget 保持包内 POSIX 风格字面量 <code>./dist/cli.js</code>。</li><li>不访问文件系统。</li></ul>
+          <h3>实现限制</h3><p>只使用 <code>node:path</code>；不要检查文件存在、改 cwd、读取 package.json 或按平台分支。Lab 前保留 <code>/** @lab */</code>。</p>
+        </section>
+
+        <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 根目录</summary><p><code>const root = path.resolve(projectRoot)</code>。</p></details><details><summary>提示 2 · 两个文件</summary><p>分别 join root + src + cli.ts 与 root + dist + cli.js。</p></details><details><summary>提示 3 · binTarget</summary><p>它是 package 元数据，不通过 path.join。</p></details></section>
+
+        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="0"><fieldset><legend>可安装 CLI 的路径契约是什么？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>bin指向编译后的JS，路径由path模块组合</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>bin直接指向TS源文件，路径用斜杠字符串拼接</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+
+        <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>import path from "node:path";
+
+export type CliPaths = {
+  readonly source: string;
+  readonly output: string;
+  readonly binTarget: "./dist/cli.js";
+};
+
+/** @lab */
+export function resolveCliPaths(projectRoot: string): CliPaths {
+  const root = path.resolve(projectRoot);
+  return {
+    source: path.join(root, "src", "cli.ts"),
+    output: path.join(root, "dist", "cli.js"),
+    binTarget: "./dist/cli.js",
+  };
+}</code></pre><dl class="line-notes"><dt>root</dt><dd>一次规范化，避免每个字段重复解析。</dd><dt>source/output</dt><dd>文件系统路径由平台 API 组合。</dd><dt>binTarget</dt><dd>包内相对目标是稳定发布契约。</dd><dt>纯函数</dt><dd>这里只描述路径，不承担文件存在性检查。</dd></dl></div></details></section>
+
+        <section id="acceptance" class="lesson-section acceptance"><h2>自动验收</h2><pre><code>pnpm lesson 23
+pnpm examples 23</code></pre><p>验收覆盖相对与绝对根目录、src/dist 映射、稳定 binTarget、输入不变与静态字面量类型。完成后请解释：为什么 binTarget 不使用 path.join？</p></section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航"><a href="0022-versioned-files-atomic-write-recovery.html">← 上一课：原子写入</a><a href="0024-cli-acceptance-refactor-agent-map.html">下一课：完整验收 →</a></nav>
+      </article>
+    </main><footer class="foot-line"><p>Typescript-Startup · Lesson 23 · Package Bin · Print-friendly HTML</p></footer><script src="../assets/course.js" defer></script>
+  </body>
+</html>

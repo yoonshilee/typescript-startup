@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 10 课：泛型约束、keyof、索引访问类型与 typeof 类型查询。">
+    <title>第 10 课 · 泛型约束与类型查询</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/narrowing-and-generics.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 10 / 24</p>
+          <p class="lesson-meta">建议 90 分钟<br>类型之间的查询<br>Lab 10</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 10</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>先限制合法能力，再从已有类型读取答案</h1>
+          <p class="lesson-lead">无约束的泛型可以代表任何类型，所以不能假设它有某个属性。约束缩小合法输入范围；<code>keyof</code> 读取合法属性键，索引访问类型读取属性值类型，<code>typeof</code> 则把已有值的静态类型带进类型位置。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-10.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现 <code>getProperty&lt;T, K extends keyof T&gt;(value, key): T[K]</code>，让键只能来自对象，并让返回类型随所选属性变化。</p>
+          <ul>
+            <li>理解无约束泛型为什么不能随意访问属性。</li>
+            <li>用 extends 描述所有合法输入都必须具备的最小结构。</li>
+            <li>用 keyof 从对象类型得到属性键联合。</li>
+            <li>用 T[K] 从键反查对应属性值类型。</li>
+            <li>用 typeof、keyof typeof 与 <code>(typeof values)[number]</code> 从现有值派生类型。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 55 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：普通泛型只保存类型关系</h2>
+          <pre><code>export function demoGenericIdentity(): { id: string; title: string } {
+  function identity&lt;T&gt;(value: T): T {
+    return value;
+  }
+
+  return identity({ id: "n1", title: "Draft" });
+}</code></pre>
+          <p>第 09 课的 T 可以是 string、number 或任意对象。编译器因此只知道“输入和输出是同一个 T”，不知道每个 T 都有 id。要读取属性，必须先证明该属性存在，或让属性键本身受 T 约束。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：值、键与属性类型形成一条链</h2>
+
+          <h3>1. 无约束 T 必须按“可能是任何类型”使用</h3>
+          <pre><code>export function demoUnconstrainedGeneric(): string {
+  function describe&lt;T&gt;(value: T): string {
+    return String(value);
+  }
+
+  return describe({ id: "n1", title: "Draft" });
+}</code></pre>
+          <p>describe 能把 value 交给接受任意值的 String，但不能直接写 <code>value.id</code>：T 也可能是 number。泛型不是“编译器暂时不知道但我知道”，而是函数必须对声明允许的每一种 T 都成立。</p>
+
+          <h3>2. 泛型约束声明所有合法 T 的最小能力</h3>
+          <pre><code>export function demoIdConstraint(): string {
+  function readId&lt;T extends { id: string }&gt;(value: T): string {
+    return value.id;
+  }
+
+  return readId({ id: "n1", title: "Draft" });
+}</code></pre>
+          <p><code>T extends { id: string }</code> 不表示类继承；它表示 T 至少要满足这个结构。对象仍可保留 title 等额外属性，函数体则能安全读取 string 类型的 id。约束是准入条件，不会把完整 T 缩成只有 id 的对象。</p>
+
+          <h3>3. keyof 把对象类型的属性名读成联合类型</h3>
+          <pre><code>export function demoKeyof() {
+  type NoteSnapshot = {
+    readonly id: string;
+    title: string;
+    archived: boolean;
+  };
+  type NoteKey = keyof NoteSnapshot;
+
+  type SummaryValue = NoteSnapshot["title" | "archived"];
+  const values: SummaryValue[] = ["Draft", false];
+  const key: NoteKey = "title";
+  return { key, values };
+}</code></pre>
+          <p>这里 NoteKey 是 <code>"id" | "title" | "archived"</code>。它存在于类型检查阶段，没有在运行时创建键数组；把 <code>"missing"</code> 赋给 NoteKey 会报错。</p>
+          <h4>T[K] 是索引访问类型，不是一次运行时取值</h4>
+
+          <p><code>NoteSnapshot["title"]</code> 是 string；用键联合索引时，结果是这些属性值的联合，所以 SummaryValue 是 <code>string | boolean</code>。方括号出现在类型位置时读取类型，出现在 <code>value[key]</code> 中时才读取运行时值。</p>
+
+          <h3>4. K extends keyof T 把第二个参数限制为第一个参数的键</h3>
+          <pre><code>export function demoGenericProperty(): string {
+  function getProperty&lt;T, K extends keyof T&gt;(
+    value: T,
+    key: K,
+  ): T[K] {
+    return value[key];
+  }
+
+  const note = { id: "n1", title: "Draft", archived: false };
+  const title = getProperty(note, "title");
+  const archived = getProperty(note, "archived");
+  return `${title}:${archived}`;
+}</code></pre>
+          <p>调用时先从 note 推断 T，再计算 <code>keyof T</code>，最后要求 K 是其中一个成员。传 title 时 K 是 <code>"title"</code>；传 missing 时不满足约束，错误在调用点出现。</p>
+          <h4>Lab 的编译期推导与运行时只发生一次属性读取</h4>
+
+          <ol>
+            <li>编译器从 note 得到 T：包含 string title 与 boolean archived。</li>
+            <li>第一次调用把 K 推断为 title，所以 T[K] 是 string。</li>
+            <li>第二次调用把 K 推断为 archived，所以 T[K] 是 boolean。</li>
+            <li>编译后泛型、keyof 与 T[K] 都被擦除，函数体只剩 <code>return value[key]</code>。</li>
+          </ol>
+          <div class="callout"><strong>最小实现：</strong>JavaScript 的方括号访问已经完成全部运行时工作。Lab 只需要用类型参数描述“这个键属于这个对象，返回值属于这个键”。</div>
+
+          <h3>5. 可选属性的索引访问结果保留 undefined</h3>
+          <pre><code>export function demoOptionalIndexedAccess(): string | undefined {
+  type DraftNote = {
+    title: string;
+    body?: string;
+  };
+  type Body = DraftNote["body"];
+
+  const body: Body = undefined;
+  return body;
+}</code></pre>
+          <p>body 可能不存在，因此读取它的结果是 <code>string | undefined</code>。T[K] 不会替你消除缺失状态；调用方仍需像第 08 课那样收窄 undefined。</p>
+
+          <h3>6. 类型位置的 typeof 读取标识符的静态类型</h3>
+          <pre><code>export function demoTypeQuery(): {
+  status: string;
+  limit: number;
+} {
+  const defaultOptions = {
+    status: "active",
+    limit: 20,
+  };
+  type ListOptions = typeof defaultOptions;
+
+  const copied: ListOptions = { ...defaultOptions };
+  return copied;
+}</code></pre>
+          <p>运行时表达式 <code>typeof defaultOptions</code> 会得到字符串 <code>"object"</code>；类型位置的 <code>type ListOptions = typeof defaultOptions</code> 则读取编译器已经推断出的对象类型。两者拼写相同，执行阶段不同。</p>
+
+          <h3>7. keyof typeof 从一个值派生可用键</h3>
+          <pre><code>export function demoValueDerivedKeys(): string {
+  const statusLabels = {
+    active: "Active",
+    archived: "Archived",
+  } as const;
+  type Status = keyof typeof statusLabels;
+
+  function labelStatus(status: Status): string {
+    return statusLabels[status];
+  }
+
+  return labelStatus("active");
+}</code></pre>
+          <p>先用 typeof 得到 statusLabels 的对象类型，再用 keyof 得到 <code>"active" | "archived"</code>。常量是运行时真相，类型从它派生；增加一个标签后，Status 会自动跟随。</p>
+
+          <h3>8. (typeof array)[number] 读取数组元素类型</h3>
+          <pre><code>export function demoArrayElementType(): string {
+  const noteSeeds = [
+    { id: "n1", title: "Draft" },
+    { id: "n2", title: "Release" },
+  ] as const;
+  type NoteSeed = (typeof noteSeeds)[number];
+
+  const first: NoteSeed = noteSeeds[0];
+  return first.title;
+}</code></pre>
+          <p>typeof 先取得只读元组类型，<code>[number]</code> 再表示“用任意数字索引可能得到的元素”。结果是两个元素类型的联合，不需要手写一份可能与数据漂移的 NoteSeed。</p>
+
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>泛型上界</td><td><code>&lt;T extends Base&gt;</code></td><td>TypeVar bound / Protocol</td><td><code>T extends { id: string }</code></td></tr>
+                <tr><td>对象键联合</td><td>通常无直接静态对应物</td><td>Literal 键 / TypedDict 工具</td><td><code>keyof T</code></td></tr>
+                <tr><td>按键读取属性类型</td><td>通常依赖方法或反射</td><td>类型检查器的索引规则</td><td><code>T[K]</code></td></tr>
+                <tr><td>从值取得类型</td><td>声明类型通常先于值</td><td>type() 是运行时；静态推导依赖工具</td><td>类型位置的 <code>typeof value</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>TypeScript 特别擅长描述 JavaScript 已有的动态属性访问：运行时仍是普通 <code>value[key]</code>，类型系统则在编译前证明 key 合法并算出结果类型。它不是 Java 反射，也不会在运行时查询类型元数据。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：一次读取多个合法键</h3>
+            <pre><code>export function demoKeyUnion(): string[] {
+  function getProperties&lt;T, K extends keyof T&gt;(
+    value: T,
+    keys: readonly K[],
+  ): T[K][] {
+    return keys.map((key) =&gt; value[key]);
+  }
+
+  const note = { id: "n1", title: "Draft", archived: false };
+  return getProperties(note, ["id", "title"]);
+}</code></pre>
+            <p>K 推断为 <code>"id" | "title"</code>，所以 T[K][] 是 string[]。若 keys 同时包含 archived，返回类型会诚实地变成 <code>Array&lt;string | boolean&gt;</code>。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：Object.keys 是运行时字符串数组</h3>
+            <pre><code>export function demoObjectKeys(): string[] {
+  const note = { id: "n1", title: "Draft" };
+  return Object.keys(note);
+}</code></pre>
+            <p>Object.keys 枚举运行时自有可枚举字符串键，标准声明保守地返回 string[]，不会自动成为 <code>Array&lt;keyof typeof note&gt;</code>。本课不靠类型断言把它强行变窄；已知键应直接由受约束参数传入。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 C：约束允许额外属性且保留完整 T</h3>
+            <pre><code>export function demoPreservedType(): boolean {
+  function keepValue&lt;T extends { id: string }&gt;(value: T): T {
+    return value;
+  }
+
+  const note = keepValue({ id: "n1", archived: false });
+  return note.archived;
+}</code></pre>
+            <p>约束只要求 id，不会丢掉 archived。若把参数和返回类型直接写成 <code>{ id: string }</code>，调用合法但返回值类型只承诺 id；泛型 T 才保存了完整输入类型。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 10</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>把 extends 一律理解成类继承。</strong> 泛型约束通常只要求结构兼容，不创建继承关系。</li>
+            <li><strong>约束写得比函数实际需要更大。</strong> 只读取 id 就只要求 id；额外字段会排除本来合法的调用。</li>
+            <li><strong>把 keyof 当成 Object.keys。</strong> 前者产生编译期键类型，后者返回运行时 string[]。</li>
+            <li><strong>写成 key: string。</strong> 任意 string 未必属于 T，返回值也无法保持所选属性的精确关系。</li>
+            <li><strong>把 T[K] 当成运行时表达式。</strong> 它只在类型位置成立，运行时读取仍需 <code>value[key]</code>。</li>
+            <li><strong>忽略可选属性。</strong> 可选属性的索引访问结果包含 undefined，不能直接当 string 使用。</li>
+            <li><strong>混淆两种 typeof。</strong> 表达式里的 typeof 返回运行时字符串；类型位置的 typeof 读取静态类型。</li>
+            <li><strong>把类型约束当作数据校验。</strong> 类型会被擦除；来自 JSON、网络或命令行的 unknown 仍需第 08 课式运行时检查。</li>
+            <li><strong>用 any 或类型断言压掉非法键错误。</strong> 这会移除 Lab 要建立的对象、键与返回值关系。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入工具类型与映射类型前，你应当能够：</p>
+          <ul>
+            <li>解释为什么无约束 T 不能假设具有某个属性。</li>
+            <li>写出最小结构约束，并说明它不会抹掉 T 的额外属性。</li>
+            <li>把 <code>keyof T</code> 展开成具体属性键联合。</li>
+            <li>根据 K 计算 T[K]，包括键联合与可选属性的结果。</li>
+            <li>区分类型位置和表达式位置的方括号与 typeof。</li>
+            <li>用 <code>keyof typeof</code> 从对象常量派生键，用 <code>(typeof values)[number]</code> 派生元素类型。</li>
+            <li>说明这些类型操作会被擦除，不能替代外部数据的运行时校验。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/generics.html#generic-constraints">TypeScript Handbook: Generic Constraints</a>：限制泛型值必须具备的最小能力。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/generics.html#using-type-parameters-in-generic-constraints">TypeScript Handbook: Using Type Parameters in Generic Constraints</a>：用 <code>K extends keyof T</code> 约束属性键。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/keyof-types.html">TypeScript Handbook: Keyof Type Operator</a>：从对象类型得到键联合。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/indexed-access-types.html">TypeScript Handbook: Indexed Access Types</a>：用另一种类型查询属性值类型。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/typeof-types.html">TypeScript Handbook: Typeof Type Operator</a>：在类型位置引用值的静态类型。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 10：读取合法属性并保留精确类型</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-10.ts</code>，把本课案例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>导出下面的泛型函数，并保持对象、键和返回类型的关系：</p>
+            <pre><code>getProperty&lt;T, K extends keyof T&gt;(
+  value: T,
+  key: K,
+): T[K]</code></pre>
+
+            <h3>运行规则</h3>
+            <ol>
+              <li>使用方括号读取并返回 <code>value[key]</code>。</li>
+              <li>字符串、布尔值、数组和对象属性都应原样返回。</li>
+              <li>属性值是对象或数组时，保留原引用，不复制。</li>
+              <li>不修改 value，也不枚举、添加或删除属性。</li>
+            </ol>
+
+            <h3>类型规则</h3>
+            <ul>
+              <li>只使用 T 与 K 两个类型参数，K 必须写成 <code>K extends keyof T</code>。</li>
+              <li>返回类型必须是 T[K]，不能拓宽成 T[keyof T]、unknown 或 any。</li>
+              <li>普通对象、readonly 对象、数字数组索引和可选属性都要保留各自推断结果。</li>
+              <li>不存在的键必须在编译期被拒绝。</li>
+              <li>不要加入重载、类型断言、运行时校验、默认值、克隆或异常处理。</li>
+            </ul>
+          </div>
+          <p>本课只训练从已有类型查询信息。第 11 课会用工具类型和映射类型批量转换对象属性。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先连接对象类型与键类型</summary>
+            <div class="details-body"><p>声明 T 后，再声明 <code>K extends keyof T</code>。这样 key: K 不能离开 value 的属性集合。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 用同一对类型参数表达返回值</summary>
+            <div class="details-body"><p>返回类型不是联合所有属性，也不是 unknown；写 <code>T[K]</code>，它会随每次调用选择的 K 改变。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 运行时只需原生方括号访问</summary>
+            <div class="details-body"><p>函数体直接 <code>return value[key];</code>。合法性和结果类型已由签名表达，不需要 if、Object.keys 或类型断言。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>在 getProperty&lt;T, K extends keyof T&gt; 中，T[K] 表示什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>把属性键 K 在运行时写进对象 T 对应的值位置</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>读取对象类型 T 在属性键 K 位置对应的值类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>/** @lab */
+export function getProperty&lt;T, K extends keyof T&gt;(
+  value: T,
+  key: K,
+): T[K] {
+  return value[key];
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1 行</dt><dd>T 保存完整对象类型；K 只能是 keyof T 中的合法属性键。</dd>
+                <dt>第 2–3 行</dt><dd>value 提供对象类型，key 提供本次调用选择的具体键类型。</dd>
+                <dt>第 4 行</dt><dd>T[K] 查询该键在该对象类型中对应的属性值类型。</dd>
+                <dt>第 5 行</dt><dd>运行时使用原生方括号访问，直接返回属性值并保留引用身份。</dd>
+                <dt>第 6 行</dt><dd>函数结束；没有断言、分支、克隆或额外状态。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 10
+pnpm examples 10</code></pre>
+          <p>Lab 验收只检查 <code>getProperty</code>：字符串、布尔值、数组引用、readonly 对象、数字索引、输入不变、非法键拒绝、可选属性与精确 T[K] 返回类型。通过后请说明：为什么把 key 写成 string、返回值写成 unknown 会丢失对象与属性之间的关系？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0009-function-types-generics-overloads.html">← 上一课：函数类型与泛型</a>
+          <a href="0011-utility-mapped-types-safe-updates.html">下一课：工具类型与安全更新 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 10 · Generic constraints and type queries · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="第 09 课：函数类型、回调、函数重载、泛型函数与高阶函数。">
+    <title>第 09 课 · 函数类型与泛型</title>
+    <link rel="stylesheet" href="../assets/course.css?v=4">
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson">跳到课程正文</a>
+    <header class="nav-edge">
+      <a class="wordmark" href="../index.html">Typescript-Startup</a>
+      <nav class="context-nav" aria-label="课程导航">
+        <a class="context-link" href="../index.html#route">课程目录</a>
+        <a class="context-link" href="../reference/narrowing-and-generics.html">本课速查</a>
+      </nav>
+    </header>
+
+    <main id="lesson" class="lesson-shell">
+      <aside class="lesson-aside" aria-label="课程目录">
+        <div>
+          <p class="lesson-number">LESSON 09 / 24</p>
+          <p class="lesson-meta">建议 90 分钟<br>函数关系与复用<br>Lab 09</p>
+        </div>
+        <nav class="lesson-toc" aria-label="本课章节">
+          <ol>
+            <li><a href="#task">任务卡</a></li>
+            <li><a href="#recall">前置回忆</a></li>
+            <li><a href="#mental-model">心智模型</a></li>
+            <li><a href="#comparison">Java/Python 对照</a></li>
+            <li><a href="#examples">多个示例</a></li>
+            <li><a href="#pitfalls">常见误区</a></li>
+            <li><a href="#contract">学习契约</a></li>
+            <li><a href="#sources">官方资料</a></li>
+            <li><a href="#lab">Lab 09</a></li>
+            <li><a href="#hints">三层提示</a></li>
+            <li><a href="#quiz">测验</a></li>
+            <li><a href="#solution">完整答案</a></li>
+            <li><a href="#acceptance">自动验收</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <header class="lesson-header">
+          <h1>函数也是值，泛型保存值之间的类型关系</h1>
+          <p class="lesson-lead">函数可以存进变量、作为参数传入、从另一个函数返回。函数类型描述它怎样被调用；泛型参数把多处类型位置连接起来，而不是像 <code>any</code> 一样抹掉信息。</p>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-09.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+        </header>
+
+        <section id="task" class="lesson-section task-card">
+          <h2>任务卡</h2>
+          <p><strong>完成物：</strong>实现泛型高阶函数 <code>createFilter&lt;T&gt;(predicate)</code>，返回一个接收只读 T 数组并产生新 T 数组的过滤函数。</p>
+          <ul>
+            <li>用函数类型表达式描述参数与返回值。</li>
+            <li>跟踪回调何时被保存、调用以及返回值如何被使用。</li>
+            <li>用泛型参数表示输入、回调与输出之间的同一类型关系。</li>
+            <li>区分联合参数、泛型函数与函数重载的适用场景。</li>
+            <li>用高阶函数返回闭包，并复用原生 <code>filter()</code>。</li>
+          </ul>
+          <p><strong>时间预算：</strong>模型与实验 55 分钟，Lab 25 分钟，复盘 10 分钟。</p>
+        </section>
+
+        <section id="recall" class="lesson-section">
+          <h2>前置回忆：第 03 课已经返回过函数</h2>
+          <pre><code>export function demoPrefixes(): string {
+  function createPrefixer(prefix: string): (value: string) =&gt; string {
+    return (value: string): string =&gt; `${prefix}:${value}`;
+  }
+
+  const prefixNote = createPrefixer("note");
+  return prefixNote("draft");
+}</code></pre>
+          <p>运行时顺序是：调用 createPrefixer，创建并返回箭头函数；返回函数闭包保留 prefix；变量 prefixNote 保存函数值；最后调用该值并传入 draft。本课把此前写在返回类型里的 <code>(value: string) =&gt; string</code> 系统展开。</p>
+        </section>
+
+        <section id="mental-model" class="lesson-section">
+          <h2>详细心智模型：描述调用方式，再连接类型位置</h2>
+
+          <h3>1. 函数类型表达式描述怎样调用一个函数值</h3>
+          <pre><code>type TitleFormatter = (title: string) =&gt; string;
+
+export function demoFunctionType(): string {
+  const formatTitle: TitleFormatter = (title) =&gt; title.trim().toUpperCase();
+  return formatTitle(" Draft ");
+}</code></pre>
+          <p><code>(title: string) =&gt; string</code> 左侧是参数列表，右侧是返回类型。这里的 title 名称用于阅读，真正参与兼容性检查的是参数位置和类型。函数类型中的参数名不能省略：<code>(string) =&gt; string</code> 会被解释成参数名叫 string、类型隐式为 any。</p>
+
+          <h3>2. 上下文类型会反向推断回调参数</h3>
+          <pre><code>export function demoContextualTyping(): string[] {
+  const titles = ["Draft", "Release"];
+  return titles.map((title) =&gt; title.toUpperCase());
+}</code></pre>
+          <p>map 的声明已经说明回调第一个参数是数组元素。TypeScript 从 string[] 反向知道 title 是 string，所以无需重复标注。运行时仍是 Array.prototype.map 依次调用回调并收集返回值；类型推断不会生成额外循环。</p>
+          <h4>函数参数更少可以忽略接收方提供的额外值</h4>
+
+            <p>map 在运行时还会提供 index 与原数组，但回调只声明 title。JavaScript 会忽略多出来的实参，因此不必为了“匹配三个参数”写无用占位符。</p>
+
+          <h3>3. 回调是由接收方决定调用时机的函数参数</h3>
+          <pre><code>export function demoCallback(): string[] {
+  function transformTitles(
+    titles: readonly string[],
+    transform: (title: string) =&gt; string,
+  ): string[] {
+    return titles.map(transform);
+  }
+
+  return transformTitles([" Draft ", " Release "], (title) =&gt; title.trim());
+}</code></pre>
+          <p>调用 transformTitles 时传入两个值：数组和函数。transformTitles 没有立刻得到转换结果；它把每个元素交给 transform，并收集每次返回的 string。回调类型既限制接收方如何调用，也限制调用方能传入什么函数。</p>
+
+          <h3>4. 回调参数可选表示接收方真的可能不传</h3>
+          <pre><code>export function demoCallbackIndex(): string[] {
+  function labelValues(
+    values: readonly string[],
+    format: (value: string, index: number) =&gt; string,
+  ): string[] {
+    return values.map(format);
+  }
+
+  return labelValues(["Draft", "Release"], (value, index) =&gt; `${index}:${value}`);
+}</code></pre>
+          <p>这里 index 不是 <code>index?: number</code>，因为 labelValues 每次都会传它。回调的调用方可以只声明 value 并忽略额外参数；把 index 写成可选反而声称“实现可能不传 index”，迫使使用它的回调处理 undefined。</p>
+
+          <h3>5. 高阶函数接收函数、返回函数，或两者兼有</h3>
+          <pre><code>export function demoHigherOrderFunction(): string[] {
+  function createPrefixer(prefix: string): (value: string) =&gt; string {
+    return (value) =&gt; `${prefix}:${value}`;
+  }
+
+  const prefixNote = createPrefixer("note");
+  return ["draft", "release"].map(prefixNote);
+}</code></pre>
+          <p>createPrefixer 返回函数，因此是高阶函数；map 接收函数，也同样是高阶函数。prefixNote 闭包捕获 prefix，但它的公开函数类型只描述调用参数与返回值，不列出闭包内部状态。</p>
+
+          <h3>6. 泛型参数表示类型关系，不是未知值</h3>
+          <pre><code>export function demoGenericFirst(): string | undefined {
+  function first&lt;T&gt;(values: readonly T[]): T | undefined {
+    return values[0];
+  }
+
+  return first(["Draft", "Release"]);
+}</code></pre>
+          <p>T 是一个类型参数。调用时 TypeScript 从 string[] 推断 T 为 string，所以返回值是 <code>string | undefined</code>。若改传 number[]，同一实现会返回 <code>number | undefined</code>。T 在输入元素与返回值之间保存对应关系，输出 JavaScript 时会被擦除。</p>
+
+          <h3>7. <code>any</code> 接受所有类型，却丢失对应关系</h3>
+          <pre><code>export function demoGenericIdentity(): { id: string; title: string } {
+  function identity&lt;T&gt;(value: T): T {
+    return value;
+  }
+
+  const note = { id: "n1", title: "Draft" };
+  return identity(note);
+}</code></pre>
+          <p>identity 的输入与输出必须是同一个 T，因此返回对象仍保留 id 和 title。若签名是 <code>(value: any) =&gt; any</code>，编译器无法保证返回类型与输入相同，后续属性访问会继续传播 any。</p>
+
+          <h3>8. 多个类型参数分别连接输入与输出</h3>
+          <pre><code>export function demoGenericMap(): number[] {
+  function mapValues&lt;Input, Output&gt;(
+    values: readonly Input[],
+    transform: (value: Input) =&gt; Output,
+  ): Output[] {
+    return values.map(transform);
+  }
+
+  return mapValues(["Draft", "Release"], (title) =&gt; title.length);
+}</code></pre>
+          <p>Input 从字符串数组推断为 string，Output 从回调返回值推断为 number。两个名称只是占位符，关键是它们分别复用在哪些位置。只有出现一次、没有建立关系的类型参数通常不需要存在。</p>
+
+          <h3>9. 显式类型实参只在推断不足或你要锁定契约时使用</h3>
+          <pre><code>export function demoTypeArgumentInference(): string[] {
+  function repeat&lt;T&gt;(value: T, count: number): T[] {
+    return Array.from({ length: count }, () =&gt; value);
+  }
+
+  const inferred = repeat("Draft", 2);
+  const explicit = repeat&lt;string&gt;("Release", 1);
+  return [...inferred, ...explicit];
+}</code></pre>
+          <p>第一行调用已能从 Draft 推断 T，所以显式写 <code>&lt;string&gt;</code> 没有额外价值。优先让推断工作；只有没有足够值信息或需要更宽的预期类型时再手写类型实参。</p>
+
+          <h3>10. 重载签名描述几个不同的合法调用形状</h3>
+          <pre><code>export function demoOverloads(): string[] {
+  function createLookup(value: string): { kind: "id"; id: string };
+  function createLookup(value: number): { kind: "index"; index: number };
+  function createLookup(
+    value: string | number,
+  ): { kind: "id"; id: string } | { kind: "index"; index: number } {
+    return typeof value === "string"
+      ? { kind: "id", id: value }
+      : { kind: "index", index: value };
+  }
+
+  const byId = createLookup("n1");
+  const byIndex = createLookup(2);
+  return [byId.id, String(byIndex.index)];
+}</code></pre>
+          <p>前两行是调用方可见的 overload signatures：字符串调用精确返回 id 成员，数字调用精确返回 index 成员。后面的 implementation signature 必须兼容全部重载，却不能作为第三种公开调用方式。重载至少要有两个可见签名。</p>
+
+          <h3>11. 联合、泛型与重载解决不同关系</h3>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>工具</th><th>适合的问题</th><th>本课示例</th></tr></thead>
+              <tbody>
+                <tr><td>联合参数</td><td>多个输入走同一返回类型与实现</td><td><code>string | number</code> 后统一返回 string</td></tr>
+                <tr><td>泛型</td><td>多个位置必须保持某种类型对应关系</td><td>输入 T 数组，输出仍是 T 数组</td></tr>
+                <tr><td>重载</td><td>几种调用形状具有不同且精确的返回契约</td><td>string 返回 id，number 返回 index</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>能用联合准确表达时优先联合；能用一个泛型关系表达时不要枚举大量重载。重载用于调用形状确实不同且需要分别展示返回契约的边界。</p>
+
+          <h3>12. <code>createFilter</code> 同时连接回调、输入数组与输出数组</h3>
+          <pre><code>export function demoGenericFilter(): string[] {
+  function createFilter&lt;T&gt;(
+    predicate: (value: T) =&gt; boolean,
+  ): (values: readonly T[]) =&gt; T[] {
+    return (values) =&gt; values.filter(predicate);
+  }
+
+  const selectLongTitle = createFilter((title: string) =&gt; title.length &gt;= 7);
+  return selectLongTitle(["Draft", "Release", "TypeScript"]);
+}</code></pre>
+          <ol>
+            <li>createFilter 接收一个判断 string 的函数，因此 T 推断为 string。</li>
+            <li>它返回一个闭包；闭包保留 predicate，并要求 readonly string[]。</li>
+            <li>调用返回函数后，原生 filter 对每个标题调用 predicate。</li>
+            <li>filter 创建新的 string[]；原数组不变，未选中的值不会进入结果。</li>
+          </ol>
+          <div class="callout"><strong>最小实现：</strong>课程需要训练类型关系，不需要重写数组过滤算法。用泛型签名表达关系，把逐元素工作交给已经存在的 <code>Array.prototype.filter</code>。</div>
+        </section>
+
+        <section id="comparison" class="lesson-section">
+          <h2>Java / Python 对照</h2>
+          <div class="table-scroll">
+            <table class="comparison-table">
+              <thead><tr><th>问题</th><th>Java</th><th>Python</th><th>TypeScript</th></tr></thead>
+              <tbody>
+                <tr><td>函数值类型</td><td>Function、Predicate、lambda</td><td>Callable[[A], B]</td><td><code>(value: A) =&gt; B</code></td></tr>
+                <tr><td>泛型函数</td><td><code>&lt;T&gt; T identity(T value)</code></td><td>TypeVar / 新式类型参数</td><td><code>function identity&lt;T&gt;(value: T): T</code></td></tr>
+                <tr><td>回调推断</td><td>目标类型推断 lambda 参数</td><td>静态工具依据 Callable 推断</td><td>contextual typing 从接收方反推</td></tr>
+                <tr><td>重载</td><td>多个运行时方法签名</td><td>@overload 只供类型检查</td><td>多个类型签名对应一个 JS 实现</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>TypeScript 重载与 Java 方法重载不同：输出 JavaScript 只有一个函数体，运行时必须自己检查参数。它更接近 Python 类型检查器的 @overload，但 TypeScript 的实现紧跟在签名之后。</p>
+        </section>
+
+        <section id="examples" class="lesson-section">
+          <h2>补充观察与运行</h2>
+
+          <div class="example">
+            <h3>示例 A：void 回调表示调用方忽略返回值</h3>
+            <pre><code>export function demoIgnoredCallbackReturn(): string[] {
+  const visited: string[] = [];
+
+  function visit(
+    values: readonly string[],
+    callback: (value: string) =&gt; void,
+  ): void {
+    for (const value of values) {
+      callback(value);
+    }
+  }
+
+  visit(["Draft", "Release"], (value) =&gt; visited.push(value));
+  return visited;
+}</code></pre>
+            <p>push 返回数组的新长度，但传给 <code>() =&gt; void</code> 仍然合法：visit 承诺忽略回调结果，不是要求回调在运行时必须返回 undefined。显式声明为 void 的普通函数仍不能把有值返回作为自己的公开结果。</p>
+          </div>
+
+          <div class="example">
+            <h3>示例 B：联合参数比同返回类型的重载更容易组合</h3>
+            <pre><code>export function demoUnionInsteadOfOverload(): number {
+  function getLength(value: string | readonly unknown[]): number {
+    return value.length;
+  }
+
+  const input: string | readonly unknown[] = "Draft";
+  return getLength(input);
+}</code></pre>
+            <p>两个输入都只需要 length 且返回 number，联合已经完整表达契约；它还能直接接受联合变量。分别写 string 与数组重载反而可能让联合变量无法匹配任何单个重载。</p>
+          </div>
+
+          <div class="example">
+            <h3>自动发现并运行案例</h3>
+            <pre><code>pnpm examples 09</code></pre>
+            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+          </div>
+        </section>
+
+        <section id="pitfalls" class="lesson-section">
+          <h2>常见误区</h2>
+          <ol>
+            <li><strong>把函数类型箭头当成函数实现。</strong> 类型中的箭头只描述返回类型，不会创建函数。</li>
+            <li><strong>给回调参数随手加问号。</strong> 可选表示接收方可能省略该实参，不是“使用者可以忽略”。</li>
+            <li><strong>用 any 冒充泛型。</strong> any 接受所有输入但不会保留输入与输出的对应关系。</li>
+            <li><strong>为每个具体类型复制一份实现。</strong> 行为相同且只需保持类型关系时使用一个泛型函数。</li>
+            <li><strong>手动写所有可推断的类型实参。</strong> 它增加噪声，还可能把调用锁得比实际需要更窄。</li>
+            <li><strong>只写一个重载签名。</strong> 实现签名对调用方不可见；重载必须有至少两个公开签名。</li>
+            <li><strong>重载能写就不用联合。</strong> 同一返回契约通常由联合参数表达得更简单、更可组合。</li>
+            <li><strong>把泛型 T 当成运行时变量。</strong> 它在编译后不存在，不能打印、比较或用 instanceof 检查。</li>
+          </ol>
+        </section>
+
+        <section id="contract" class="lesson-section learning-contract">
+          <h2>Learning Contract</h2>
+          <p>进入泛型约束、keyof 与类型查询前，你应当能够：</p>
+          <ul>
+            <li>读写函数类型表达式，并指出参数与返回类型各自的位置。</li>
+            <li>根据接收方签名预测回调参数的上下文类型、调用次数和返回值用途。</li>
+            <li>解释高阶函数与闭包如何在运行时组合。</li>
+            <li>用一个或多个泛型参数表达输入、回调和输出之间的对应关系。</li>
+            <li>判断何时依赖类型实参推断，何时需要显式类型实参。</li>
+            <li>解释 overload signature、implementation signature 与实际单一 JavaScript 函数体的关系。</li>
+            <li>在联合、泛型和重载之间选择最简单且准确的契约。</li>
+          </ul>
+        </section>
+
+        <section id="sources" class="lesson-section">
+          <h2>官方资料</h2>
+          <ul>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/functions.html#function-type-expressions">TypeScript Handbook: Function Type Expressions</a>：函数值的参数与返回类型。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/functions.html#generic-functions">TypeScript Handbook: Generic Functions</a>：类型关系、推断与泛型函数准则。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/functions.html#optional-parameters-in-callbacks">TypeScript Handbook: Optional Parameters in Callbacks</a>：为什么回调参数不能随意标成可选。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/functions.html#function-overloads">TypeScript Handbook: Function Overloads</a>：重载签名与实现签名。</li>
+            <li><a href="https://www.typescriptlang.org/docs/handbook/2/generics.html">TypeScript Handbook: Generics</a>：泛型类型参数如何保存精确信息。</li>
+          </ul>
+        </section>
+
+        <section id="lab" class="lesson-section">
+          <h2>Lab 09：创建可复用的泛型过滤函数</h2>
+          <div class="callout">
+            <p><strong>由你创建或修改：</strong>创建 <code>src/lesson-09.ts</code>，把本课案例、改写和 Lab 都保存在这里。</p>
+            <p><strong>不要修改：</strong><code>tests/lessons.test.ts</code> 与 <code>scripts/</code>；它们是课程验收工具。</p>
+          </div>
+          <div class="lab-brief">
+            <h3>你要交付什么</h3>
+            <p>导出下面的泛型高阶函数，并保持参数名与类型关系清晰：</p>
+            <pre><code>createFilter&lt;T&gt;(
+  predicate: (value: T) =&gt; boolean,
+): (values: readonly T[]) =&gt; T[]</code></pre>
+
+            <h3>运行规则</h3>
+            <ol>
+              <li>调用 createFilter 时保存 predicate，并返回一个新的过滤函数。</li>
+              <li>调用返回函数时，把 values 交给原生 <code>values.filter(predicate)</code>。</li>
+              <li>predicate 按输入顺序对每个元素执行一次；true 保留，false 排除。</li>
+              <li>返回新的 T[]，不修改输入数组。</li>
+            </ol>
+
+            <h3>类型规则</h3>
+            <ul>
+              <li>只使用一个类型参数 T，把 predicate 参数、输入元素和输出元素连接起来。</li>
+              <li>输入必须接受 readonly T[]，因此普通数组和 <code>as const</code> 数组都能传入。</li>
+              <li>predicate 必须返回 boolean，不能改成 any、unknown 或任意值。</li>
+              <li>不要加入泛型约束、keyof、重载、去重、排序或异常处理。</li>
+            </ul>
+          </div>
+          <p>本课只建立函数组合与类型关系。第 10 课才会讨论泛型约束、keyof、索引访问类型和 typeof 类型查询。</p>
+        </section>
+
+        <section id="hints" class="lesson-section">
+          <h2>三层提示</h2>
+          <details>
+            <summary>提示 1 · 先写外层泛型签名</summary>
+            <div class="details-body"><p>在函数名后写 <code>&lt;T&gt;</code>，predicate 类型是 <code>(value: T) =&gt; boolean</code>，返回类型本身也是一个函数类型。</p></div>
+          </details>
+          <details>
+            <summary>提示 2 · 返回闭包而不是过滤结果</summary>
+            <div class="details-body"><p>createFilter 第一次调用还没有 values；返回 <code>(values) =&gt; ...</code>，该箭头函数会捕获 predicate。</p></div>
+          </details>
+          <details>
+            <summary>提示 3 · 复用原生 filter</summary>
+            <div class="details-body"><p>返回函数体只需 <code>values.filter(predicate)</code>。filter 已经保证新数组、输入顺序与逐元素判断。</p></div>
+          </details>
+        </section>
+
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>泛型参数 T 在 createFilter 中表达什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>同一个元素类型贯穿判断函数、输入数组与输出数组</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>运行时创建名为 T 的对象并为数组元素保存状态</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="solution" class="lesson-section">
+          <h2>折叠完整答案与逐行解析</h2>
+          <details>
+            <summary>显示完整答案</summary>
+            <div class="details-body">
+              <pre><code>/** @lab */
+export function createFilter&lt;T&gt;(
+  predicate: (value: T) =&gt; boolean,
+): (values: readonly T[]) =&gt; T[] {
+  return (values) =&gt; values.filter(predicate);
+}</code></pre>
+              <dl class="line-notes">
+                <dt>第 1–2 行</dt><dd>T 在每次 createFilter 调用中代表一种元素类型；predicate 必须接收该类型并返回 boolean。</dd>
+                <dt>第 3 行</dt><dd>外层函数返回另一个函数；返回函数接受只读 T 数组并产生新的可变 T 数组。</dd>
+                <dt>第 4 行</dt><dd>箭头函数捕获 predicate，原生 filter 负责按顺序调用它并创建结果数组。</dd>
+                <dt>第 5 行</dt><dd>外层函数结束；没有额外状态、重载或自定义循环。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <section id="acceptance" class="lesson-section acceptance">
+          <h2>自动验收</h2>
+          <pre><code>pnpm lesson 09</code></pre>
+          <p>只验收 <code>createFilter</code>：数字、字符串和对象元素的运行结果，predicate 调用顺序，新数组身份、输入不变、readonly 输入、boolean 回调与泛型元素关系。通过后请说明：为什么 <code>(value: any) =&gt; any</code> 不能替代这里的泛型签名？</p>
+        </section>
+
+        <nav class="lesson-nav" aria-label="课程前后导航">
+          <a href="0008-null-undefined-unknown-boundaries.html">← 上一课：空值与未知边界</a>
+          <a href="0010-generic-constraints-keyof-type-queries.html">下一课：泛型约束与类型查询 →</a>
+        </nav>
+      </article>
+    </main>
+
+    <footer class="foot-line"><p>Typescript-Startup · Lesson 09 · Function types and generics · Print-friendly HTML</p></footer>
+    <script src="../assets/course.js" defer></script>
+  </body>
+</html>
