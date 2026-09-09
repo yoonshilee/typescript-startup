@@ -24,7 +24,7 @@ pnpm course
 2. 保存后点击代码块下方的“运行示例”。按钮执行的是 TS 文件中的同名无参导出函数，不是 HTML 中的代码；提示 `unavailable` 时，检查文件、函数名和 `export` 是否一致。
 3. 运行 `pnpm lesson NN` 验收当前 Lab，例如 `pnpm lesson 01`。先尝试，再看分层提示和折叠答案。
 
-示例使用 `export function demoName() { ... }`；Lab 前保留 `/** @lab */`，避免被示例按钮执行。课号必须补零。
+示例使用 `export function demoName() { ... }`；Lab 前保留 `/** @lab */`，避免被示例按钮执行。课号必须补零。网页运行区仅显示返回值；终端 `pnpm examples NN` 仍显示“函数名: 结果”，方便区分批量输出。
 
 | 命令 | 用途 |
 | --- | --- |

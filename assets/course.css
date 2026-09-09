@@ -584,7 +584,7 @@ hr {
   flex-wrap: wrap;
   gap: var(--space-xs);
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 
 .example-output__button {

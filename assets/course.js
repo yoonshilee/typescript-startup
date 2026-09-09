@@ -53,7 +53,7 @@ if (lessonMatch) {
       const panel = document.createElement("section");
       panel.className = "example-output";
       panel.setAttribute("aria-label", `${name} 的运行结果`);
-      panel.innerHTML = `<div class="example-output__bar"><code>${name}()</code><button class="button example-output__button" type="button" aria-controls="${resultId}">运行示例</button></div><pre id="${resultId}" hidden><code aria-live="polite"></code></pre>`;
+      panel.innerHTML = `<div class="example-output__bar"><button class="button example-output__button" type="button" aria-controls="${resultId}">运行示例</button></div><pre id="${resultId}" hidden><code aria-live="polite"></code></pre>`;
 
       const button = panel.querySelector("button");
       const result = panel.querySelector("pre");

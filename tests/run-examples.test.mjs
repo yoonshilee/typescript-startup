@@ -55,13 +55,22 @@ test("rejects a top-level function that was not exported", () => {
   );
 });
 
-test("course server runs an example but not a Lab", async (context) => {
+test("course server returns only example results and excludes Labs", async (context) => {
   const root = await mkdtemp(join(tmpdir(), "typescript-course-"));
   await mkdir(join(root, "src"));
   await writeFile(join(root, "package.json"), '{"type":"module"}\n');
   await writeFile(
     join(root, "src/lesson-01.ts"),
     `export function demoValue(): number { return 42; }
+export function demoText(): string { return "demoText: 100% %s %d"; }
+export function demoObject() { return { value: 42 }; }
+export function demoArray() { return [1, "two", false]; }
+export function demoFalse(): boolean { return false; }
+export function demoZero(): number { return 0; }
+export function demoEmpty(): string { return ""; }
+export function demoNull(): null { return null; }
+export function demoUndefined(): void {}
+export async function demoAsync(): Promise<number> { return 42; }
 /** @lab */
 export function lab(): number { return 0; }
 `,
@@ -79,7 +88,24 @@ export function lab(): number { return 0; }
 
   const { port } = server.address();
   const response = await fetch(`http://127.0.0.1:${port}/api/examples/01/demoValue`);
-  assert.deepEqual(await response.json(), { output: "demoValue: 42" });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { output: "42" });
+
+  for (const [name, output] of [
+    ["demoText", "demoText: 100% %s %d"],
+    ["demoObject", "{ value: 42 }"],
+    ["demoArray", "[ 1, 'two', false ]"],
+    ["demoFalse", "false"],
+    ["demoZero", "0"],
+    ["demoEmpty", ""],
+    ["demoNull", "null"],
+    ["demoUndefined", "undefined"],
+    ["demoAsync", "42"],
+  ]) {
+    const valueResponse = await fetch(`http://127.0.0.1:${port}/api/examples/01/${name}`);
+    assert.equal(valueResponse.status, 200, name);
+    assert.deepEqual(await valueResponse.json(), { output }, name);
+  }
 
   await writeFile(
     join(root, "src/lesson-01.ts"),
@@ -91,8 +117,12 @@ export function lab(): number { return 0; }
   const updatedResponse = await fetch(
     `http://127.0.0.1:${port}/api/examples/01/demoValue`,
   );
-  assert.deepEqual(await updatedResponse.json(), { output: "demoValue: 43" });
+  assert.equal(updatedResponse.status, 200);
+  assert.deepEqual(await updatedResponse.json(), { output: "43" });
 
   const labResponse = await fetch(`http://127.0.0.1:${port}/api/examples/01/lab`);
   assert.equal(labResponse.status, 404);
+  assert.deepEqual(await labResponse.json(), {
+    error: "Example lab is unavailable in src/lesson-01.ts.",
+  });
 });

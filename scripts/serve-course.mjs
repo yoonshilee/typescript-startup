@@ -60,7 +60,7 @@ async function executeExample(root, lesson, name) {
     throw new HttpError(500, `Discovered example ${name} is not a function export.`);
   }
 
-  return formatWithOptions({ colors: false }, `${name}:`, await lessonModule[name]());
+  return formatWithOptions({ colors: false }, await lessonModule[name]());
 }
 
 export function createCourseServer(rootDirectory = DEFAULT_ROOT) {
