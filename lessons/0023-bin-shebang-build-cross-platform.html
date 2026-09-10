@@ -6,7 +6,7 @@
     <main class="lesson-layout">
       <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 23 / 24</p><p>建议 90 分钟</p><p>用户运行的是产物</p><p>Lab 23</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
       <article id="lesson" class="lesson-paper">
-        <header class="lesson-title"><p class="eyebrow">PACKAGE BIN · SHEBANG · DIST · CROSS-PLATFORM</p><h1>可安装 CLI 的公开入口是编译后的 JavaScript 文件</h1><p class="lead">开发时 Node 24 可以直接运行可擦除 TypeScript，但包的 bin 契约应指向构建产物。shebang 让类 Unix shell 选择 Node，pnpm/npm 创建命令链接，path 与 file URL API 处理平台差异。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-23.ts</code>。路径实验保持顶层零参数导出；接收 projectRoot 的 Lab 用 <code>/** @lab */</code>。</div></header>
+        <header class="lesson-title"><p class="eyebrow">PACKAGE BIN · SHEBANG · DIST · CROSS-PLATFORM</p><h1>可安装 CLI 的公开入口是编译后的 JavaScript 文件</h1><p class="lead">开发时 Node 24 可以直接运行可擦除 TypeScript，但包的 bin 契约应指向构建产物。shebang 让类 Unix shell 选择 Node，pnpm/npm 创建命令链接，path 与 file URL API 处理平台差异。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-23.ts</code>。路径实验保持顶层零参数导出；Lab 由课程 HTML 自动识别，无需特殊注释。</div></header>
 
         <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>resolveCliPaths(projectRoot)</code>，分别返回绝对源码路径、绝对构建产物路径与 package bin 的相对目标。</p><ul><li>理解 package.json bin 指向什么。</li><li>说明 shebang 在 Unix 与 Windows 命令 shim 中的不同作用。</li><li>追踪 src/cli.ts 到 dist/cli.js。</li><li>区分文件系统路径、文件 URL 与 ESM 模块说明符。</li></ul></section>
 
@@ -54,7 +54,7 @@ export function demoPaths() {
 
         <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
 
-          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 23</code></pre><p>所有路径案例都无需参数并可执行；projectRoot Lab 用 <code>/** @lab */</code> 排除。</p></div>
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 23</code></pre><p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p></div>
         </section>
 
         <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>bin 指向 src/cli.ts。</strong>消费者不应依赖 TypeScript 运行支持。</li><li><strong>shebang 前有空行。</strong>Unix 内核不会把它识别为解释器声明。</li><li><strong>手工拼接绝对路径。</strong>Windows 盘符与分隔符会出错。</li><li><strong>把 file URL 当路径。</strong>百分号编码与平台格式会被破坏。</li><li><strong>只验证 node dist/cli.js。</strong>还要验证包管理器创建的命令入口。</li><li><strong>提交所有构建产物。</strong>课程仓库只需可重建并在验收时生成。</li></ul></section>
@@ -72,7 +72,8 @@ export function demoPaths() {
 
 resolveCliPaths(projectRoot: string): CliPaths</code></pre>
           <h3>运行规则</h3><ul><li>先用 <code>path.resolve(projectRoot)</code> 规范化根目录。</li><li>source 用 path.join 指向 src/cli.ts。</li><li>output 用 path.join 指向 dist/cli.js。</li><li>binTarget 保持包内 POSIX 风格字面量 <code>./dist/cli.js</code>。</li><li>不访问文件系统。</li></ul>
-          <h3>实现限制</h3><p>只使用 <code>node:path</code>；不要检查文件存在、改 cwd、读取 package.json 或按平台分支。Lab 前保留 <code>/** @lab */</code>。</p>
+          <h3>实现限制</h3><p>只使用 <code>node:path</code>；不要检查文件存在、改 cwd、读取 package.json 或按平台分支。</p>
+          <p>保存 <code>src/lesson-23.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 23</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 根目录</summary><p><code>const root = path.resolve(projectRoot)</code>。</p></details><details><summary>提示 2 · 两个文件</summary><p>分别 join root + src + cli.ts 与 root + dist + cli.js。</p></details><details><summary>提示 3 · binTarget</summary><p>它是 package 元数据，不通过 path.join。</p></details></section>
@@ -87,7 +88,6 @@ export type CliPaths = {
   readonly binTarget: "./dist/cli.js";
 };
 
-/** @lab */
 export function resolveCliPaths(projectRoot: string): CliPaths {
   const root = path.resolve(projectRoot);
   return {

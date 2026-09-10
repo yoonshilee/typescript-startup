@@ -6,7 +6,7 @@
     <main class="lesson-layout">
       <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 22 / 24</p><p>建议 110 分钟</p><p>失败不能毁掉旧数据</p><p>Lab 22</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
       <article id="lesson" class="lesson-paper">
-        <header class="lesson-title"><p class="eyebrow">VERSIONED FORMAT · TEMP FILE · RENAME · RECOVERY</p><h1>可靠写入的最低标准：新文件完整后，才替换旧文件</h1><p class="lead">直接 writeFile 目标路径可能在进程中断时留下半截 JSON。版本字段解决“怎样解释数据”，同目录临时文件加 rename 解决“怎样一次切换到新数据”，finally 清理解决“失败后留下什么”。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-22.ts</code>。安全模型实验保持零参数导出；接收路径与 notes 的原子写入 Lab 用 <code>/** @lab */</code>。</div></header>
+        <header class="lesson-title"><p class="eyebrow">VERSIONED FORMAT · TEMP FILE · RENAME · RECOVERY</p><h1>可靠写入的最低标准：新文件完整后，才替换旧文件</h1><p class="lead">直接 writeFile 目标路径可能在进程中断时留下半截 JSON。版本字段解决“怎样解释数据”，同目录临时文件加 rename 解决“怎样一次切换到新数据”，finally 清理解决“失败后留下什么”。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-22.ts</code>。安全模型实验保持零参数导出；Lab 由课程 HTML 自动识别，无需特殊注释。</div></header>
 
         <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>writeNotesAtomically(filePath, notes)</code>，写入 <code>{ version: 1, notes }</code>，同目录生成唯一临时文件，成功 rename，任何路径都清理临时文件。</p><ul><li>用版本号区分文件协议。</li><li>区分语法损坏、结构无效与不支持版本。</li><li>理解同目录临时文件为何关键。</li><li>保证失败不主动删除旧目标文件。</li></ul></section>
 
@@ -44,10 +44,9 @@ export function demoTempPath(): boolean {
   return ["write temp", "rename temp to target", "remove leftover temp"];
 }</code></pre><p>写临时文件失败时，目标未触碰；rename 成功后目标整体变成新内容；finally 对不存在的临时文件使用 force 清理。</p>
 
-          <h3>5. 危险的直接覆盖不自动运行</h3><pre><code>/** @example-skip */
-function demoDirectOverwrite(): string {
+          <h3>5. 危险的直接覆盖不自动运行</h3><pre><code>function demoDirectOverwrite(): string {
   return "writeFile(target) can truncate before the new payload completes";
-}</code></pre><p>此函数只说明危险序列，不执行真实覆盖，因此用 <code>@example-skip</code> 保持非导出。</p>
+}</code></pre><p>此函数只说明危险序列，不执行真实覆盖，因此保持非导出，不由运行工具调用。</p>
           <div class="callout"><strong>诚实边界：</strong>原子 rename 防止半文件，不等于事务系统；它不解决多进程并发、磁盘硬件保证、备份与跨版本迁移。</div>
         </section>
 
@@ -55,7 +54,7 @@ function demoDirectOverwrite(): string {
 
         <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
 
-          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 22</code></pre><p>安全函数正常运行；危险直接覆盖用 <code>/** @example-skip */</code> 排除，Lab 用 <code>/** @lab */</code> 排除。</p></div>
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 22</code></pre><p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p></div>
         </section>
 
         <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>解析失败就返回空数组。</strong>下一次保存会永久覆盖可恢复数据。</li><li><strong>临时文件放系统 tmp。</strong>跨文件系统 rename 可能失败。</li><li><strong>使用固定 .tmp 名。</strong>并发写入互相破坏。</li><li><strong>先删除目标再 rename。</strong>制造没有任何有效文件的窗口。</li><li><strong>只在成功时清理。</strong>失败会无限堆积临时文件。</li><li><strong>声称等同数据库事务。</strong>多进程协调和持久化级别尚未解决。</li></ul></section>
@@ -75,7 +74,8 @@ writeNotesAtomically(
   notes: readonly VersionedNote[],
 ): Promise&lt;void&gt;</code></pre>
           <h3>运行规则</h3><ul><li>递归创建目标父目录。</li><li>临时文件位于同一父目录，名称含 randomUUID。</li><li>以 flag <code>wx</code>、UTF-8 写入版本 1 envelope、两空格和末尾换行。</li><li>写完后 rename 到目标。</li><li>finally 用 <code>rm(tempPath, { force: true })</code> 清理。</li></ul>
-          <h3>实现限制</h3><p>仅用 Node 标准库；不要先删除目标、同步 I/O、catch 后吞错、备份系统或锁。Lab 前保留 <code>/** @lab */</code>。</p>
+          <h3>实现限制</h3><p>仅用 Node 标准库；不要先删除目标、同步 I/O、catch 后吞错、备份系统或锁。</p>
+          <p>保存 <code>src/lesson-22.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 22</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 临时路径</summary><p>组合 dirname、basename 与 randomUUID，确保同目录。</p></details><details><summary>提示 2 · try 包住什么</summary><p>writeFile 与 rename 放在 try，rm 放 finally。</p></details><details><summary>提示 3 · rename 成功后</summary><p>旧 tempPath 已不存在，force rm 仍安全。</p></details></section>
@@ -91,7 +91,6 @@ export type VersionedNote = {
   readonly title: string;
 };
 
-/** @lab */
 export async function writeNotesAtomically(
   filePath: string,
   notes: readonly VersionedNote[],

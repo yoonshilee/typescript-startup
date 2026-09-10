@@ -614,7 +614,8 @@ hr {
 }
 
 .example-output__button:focus-visible,
-.example-output__button.is-focus {
+.example-output__button.is-focus,
+.lab-output pre:focus-visible {
   outline: var(--rule-fine) solid var(--color-focus);
   outline-offset: 2px;
 }
@@ -654,6 +655,17 @@ hr {
 .example-output pre[data-state="error"] {
   color: var(--color-error);
   background: var(--color-error-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lab-output {
+  margin-block: var(--space-sm) 0;
+}
+
+.lab-output pre {
+  max-height: 28rem;
+  overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

@@ -6,7 +6,7 @@
     <main class="lesson-layout">
       <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 19 / 24</p><p>建议 100 分钟</p><p>参数先变成命令</p><p>Lab 19</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
       <article id="lesson" class="lesson-paper">
-        <header class="lesson-title"><p class="eyebrow">CLI · PARSEARGS · STDIO · EXIT STATUS</p><h1>CLI 的第一条边界是把字符串数组解析成领域命令</h1><p class="lead"><code>process.argv</code>、stdin、stdout、stderr 和退出码属于进程协议；“新增笔记”属于应用协议。先用 Node 标准库解析输入，再把结果转换成可判别联合，后续业务就不必反复理解字符串位置。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-19.ts</code>。示例保持零参数导出函数；接收 argv 的解析 Lab 用 <code>/** @lab */</code> 标记。</div></header>
+        <header class="lesson-title"><p class="eyebrow">CLI · PARSEARGS · STDIO · EXIT STATUS</p><h1>CLI 的第一条边界是把字符串数组解析成领域命令</h1><p class="lead"><code>process.argv</code>、stdin、stdout、stderr 和退出码属于进程协议；“新增笔记”属于应用协议。先用 Node 标准库解析输入，再把结果转换成可判别联合，后续业务就不必反复理解字符串位置。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-19.ts</code>。示例保持零参数导出函数；Lab 由课程 HTML 自动识别，无需特殊注释。</div></header>
 
         <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>parseNoteCommand(argv)</code>，支持 <code>add "title"</code>、<code>list [--json]</code> 和 <code>help</code>，非法组合明确抛错。</p><ul><li>理解 process.argv 的 node、入口与用户参数分段。</li><li>使用 <code>node:util.parseArgs</code> 解析选项和位置参数。</li><li>把 stdout、stderr 与退出码按用户结果分类。</li><li>让业务层接收结构化 NoteCommand，而非原始 argv。</li></ul></section>
 
@@ -65,7 +65,7 @@ export function demoParsedOptions() {
 
         <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
 
-          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 19</code></pre><p>所有无参案例按源码顺序运行；argv Lab 由 <code>/** @lab */</code> 排除。</p></div>
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 19</code></pre><p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p></div>
         </section>
 
         <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>把完整 process.argv 交给解析器。</strong>Node 与入口路径会被当作命令。</li><li><strong>parseArgs 后不做语义校验。</strong>它不知道 add 需要一个标题。</li><li><strong>所有消息都 console.log。</strong>脚本无法区分结果与诊断。</li><li><strong>在深层函数 process.exit。</strong>清理与测试会被突然终止。</li><li><strong>返回 string | undefined 表示命令。</strong>调用者无法穷尽处理。</li><li><strong>为三个命令引入 CLI 框架。</strong>Node 标准库已覆盖当前语法。</li></ul></section>
@@ -82,7 +82,8 @@ export function demoParsedOptions() {
 
 parseNoteCommand(argv: readonly string[]): NoteCommand</code></pre>
           <h3>运行规则</h3><ul><li>parseArgs 开启 strict 与 allowPositionals，只声明 boolean <code>--json</code>/<code>-j</code>。</li><li><code>help</code> 不接受额外参数或 --json。</li><li><code>add</code> 必须恰有一个非空标题，且不接受 --json。</li><li><code>list</code> 不接受额外位置参数，并保留 json 布尔值。</li><li>未知命令与非法组合抛出 Error。</li></ul>
-          <h3>实现限制</h3><p>使用 <code>node:util.parseArgs</code>；不要读取 process、打印、退出、访问文件、使用 any 或类型断言。Lab 前保留 <code>/** @lab */</code>。</p>
+          <h3>实现限制</h3><p>使用 <code>node:util.parseArgs</code>；不要读取 process、打印、退出、访问文件、使用 any 或类型断言。</p>
+          <p>保存 <code>src/lesson-19.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 19</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 先拆结构</summary><p><code>const { positionals, values } = parseArgs(...)</code>。</p></details><details><summary>提示 2 · 命令在哪里</summary><p>用数组解构取得 command 与 rest。</p></details><details><summary>提示 3 · 标题</summary><p>add 分支检查 rest 长度与 <code>title.trim()</code>，但保留原 title。</p></details></section>
@@ -96,7 +97,6 @@ export type NoteCommand =
   | { readonly kind: "list"; readonly json: boolean }
   | { readonly kind: "help" };
 
-/** @lab */
 export function parseNoteCommand(argv: readonly string[]): NoteCommand {
   const { positionals, values } = parseArgs({
     args: [...argv],

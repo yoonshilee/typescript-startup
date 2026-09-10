@@ -46,7 +46,7 @@
         <header class="lesson-header">
           <h1>文件边界既是名称边界，也是运行时加载边界</h1>
           <p class="lesson-lead">ESM 用静态 import/export 连接模块；Node 根据 specifier、文件扩展名与最近的 package.json 决定怎样加载；TypeScript 必须模仿这个 host，同时把纯类型导入从输出中擦除。</p>
-          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-14.ts</code>，先放本课 import，再按顺序添加导出的无参案例；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-14.ts</code>，先放本课 import，再按顺序添加导出的无参案例；带参数 helper 放在案例内部；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section task-card">
@@ -246,7 +246,7 @@ export const bValue = `b:${aValue}`;</code></pre>
           <div class="example">
             <h3>自动发现并运行案例</h3>
             <pre><code>pnpm examples 14</code></pre>
-            <p>runner 导入真实 lesson-14.ts 模块并按源码顺序调用无参命名导出；纯类型导出和模块私有绑定不在运行时列表，带 <code>/** @lab */</code> 的 createModuleNote 不会执行。</p>
+            <p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p>
           </div>
         </section>
 
@@ -321,10 +321,11 @@ createModuleNote(title: string): ModuleNote</code></pre>
               <li>使用命名 export；ModuleNote 只导出类型，createModuleNote 导出运行时值。</li>
               <li>不要 trim 或修改 title，不要导出 nextModuleId。</li>
               <li>不要使用 globalThis、process、class、闭包工厂、数组历史、Map、any、unknown 或类型断言。</li>
-              <li>Lab 函数前保留 <code>/** @lab */</code>，让自动 runner 跳过参数化函数。</li>
+              <li>Lab 保持普通函数导出，由课程 HTML 自动识别。</li>
             </ul>
           </div>
           <p>模块顶层状态只为观察单次评估与缓存；真实持久化会在第 18/22 课交给文件与明确存储边界，而不是依赖进程内计数。</p>
+          <p>保存 <code>src/lesson-14.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 14</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -335,7 +336,7 @@ createModuleNote(title: string): ModuleNote</code></pre>
           </details>
           <details>
             <summary>提示 2 · 类型和值使用不同 export</summary>
-            <div class="details-body"><p>ModuleNote 写 <code>export type</code>；函数写普通 <code>export function</code>，并在前一行保留 @lab 标记。</p></div>
+            <div class="details-body"><p>ModuleNote 写 <code>export type</code>；函数写普通 <code>export function</code>，无需添加额外注释。</p></div>
           </details>
           <details>
             <summary>提示 3 · 最小运行时实现</summary>
@@ -368,7 +369,6 @@ export type ModuleNote = {
   title: string;
 };
 
-/** @lab */
 export function createModuleNote(title: string): ModuleNote {
   const note = {
     id: `module-${nextModuleId}`,
@@ -380,11 +380,10 @@ export function createModuleNote(title: string): ModuleNote {
               <dl class="line-notes">
                 <dt>第 1 行</dt><dd>nextModuleId 属于模块实例，不导出；同一 URL 的重复 import 复用这个绑定。</dd>
                 <dt>第 3–6 行</dt><dd>ModuleNote 是纯类型导出，生成 JavaScript 时完全擦除；readonly 只限制调用方写 id。</dd>
-                <dt>第 8 行</dt><dd>@lab 让示例 runner 不调用带 title 参数的验收函数。</dd>
-                <dt>第 9 行</dt><dd>createModuleNote 是命名值导出，导入者拿到指向该模块函数绑定的连接。</dd>
-                <dt>第 10–13 行</dt><dd>用当前模块序号创建新对象并原样保留 title。</dd>
-                <dt>第 14–15 行</dt><dd>更新模块私有绑定后返回；再次导入同一 URL 不会重跑第 1 行。</dd>
-                <dt>第 16 行</dt><dd>函数结束；没有全局对象、工厂类或导出的可变状态。</dd>
+                <dt>第 8 行</dt><dd>createModuleNote 是命名值导出，导入者拿到指向该模块函数绑定的连接。</dd>
+                <dt>第 9–12 行</dt><dd>用当前模块序号创建新对象并原样保留 title。</dd>
+                <dt>第 13–14 行</dt><dd>更新模块私有绑定后返回；再次导入同一 URL 不会重跑第 1 行。</dd>
+                <dt>第 15 行</dt><dd>函数结束；没有全局对象、工厂类或导出的可变状态。</dd>
               </dl>
             </div>
           </details>

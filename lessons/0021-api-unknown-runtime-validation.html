@@ -6,7 +6,7 @@
     <main class="lesson-layout">
       <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 21 / 24</p><p>建议 100 分钟</p><p>类型不能校验网络</p><p>Lab 21</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
       <article id="lesson" class="lesson-paper">
-        <header class="lesson-title"><p class="eyebrow">UNKNOWN · JSON · STRUCTURAL VALIDATION</p><h1>外部数据先是 unknown，通过证据后才是领域对象</h1><p class="lead">HTTP 响应、JSON 文件、环境变量和用户输入不会因为写了 TypeScript 类型就改变。类型断言只改变编译器判断；运行时校验必须逐层证明容器、字段与元素满足契约。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-21.ts</code>。安全实验是顶层零参数导出函数；解析 unknown 的 Lab 用 <code>/** @lab */</code> 标记，危险断言案例用 <code>/** @example-skip */</code>。</div></header>
+        <header class="lesson-title"><p class="eyebrow">UNKNOWN · JSON · STRUCTURAL VALIDATION</p><h1>外部数据先是 unknown，通过证据后才是领域对象</h1><p class="lead">HTTP 响应、JSON 文件、环境变量和用户输入不会因为写了 TypeScript 类型就改变。类型断言只改变编译器判断；运行时校验必须逐层证明容器、字段与元素满足契约。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-21.ts</code>。安全实验是顶层零参数导出函数；Lab 由课程 HTML 自动识别，无需特殊注释。危险案例保持非导出。</div></header>
 
         <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>parseApiNote(value)</code>，验证非空对象、id、title 与字符串 tags，并返回拥有独立 tags 数组的 ApiNote。</p><ul><li>理解 JSON.parse 与 response.json 的结果应视作 unknown。</li><li>按容器 → 属性 → 元素顺序收窄。</li><li>区分检查事实与类型断言。</li><li>在信任边界拒绝损坏数据，不让错误扩散进领域层。</li></ul></section>
 
@@ -35,11 +35,10 @@
     tags.every((tag) =&gt; typeof tag === "string");
 }</code></pre><p>Array.isArray 只证明容器；every 才证明元素。空数组会通过 every，正符合“所有元素都是字符串”。</p>
 
-          <h3>4. 断言不会产生运行时保护</h3><pre><code>/** @example-skip */
-function demoUnsafeAssertion(): string {
+          <h3>4. 断言不会产生运行时保护</h3><pre><code>function demoUnsafeAssertion(): string {
   const value: unknown = { title: 42 };
   return (value as { title: string }).title.toUpperCase();
-}</code></pre><p>这会在运行时抛错，因此故意不导出并标记跳过。<code>as</code> 没检查 42，也没转换它；它只是要求编译器相信作者。</p>
+}</code></pre><p>这会在运行时抛错，因此故意不导出，不由运行工具调用。<code>as</code> 没检查 42，也没转换它；它只是要求编译器相信作者。</p>
 
           <h3>5. 校验后复制边界集合</h3><pre><code>export function demoBoundaryCopy() {
   const source = { id: "n1", title: "Draft", tags: ["ts"], debug: true };
@@ -64,7 +63,7 @@ function demoUnsafeAssertion(): string {
   return Object.hasOwn(value, "id");
 }</code></pre><p>结果 false；边界对象通常只接受自身 JSON 字段，不依赖原型链。</p></div>
 
-          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 21</code></pre><p>危险断言案例因 <code>/** @example-skip */</code> 保持不可运行；参数化 Lab 因 <code>/** @lab */</code> 排除。</p></div>
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 21</code></pre><p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p></div>
         </section>
 
         <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>给 response.json 标注 ApiNote。</strong>标注不能改变服务器响应。</li><li><strong>只检查 typeof object。</strong>null 与数组也会混入。</li><li><strong>只检查 tags 是数组。</strong>元素仍可能是数字或对象。</li><li><strong>用 as 跳过检查。</strong>错误只会推迟到更远处爆炸。</li><li><strong>返回原始外部对象。</strong>额外字段与共享引用继续越过边界。</li><li><strong>错误消息依赖完整 JSON。</strong>可能泄露大体积或敏感数据。</li></ul></section>
@@ -82,7 +81,8 @@ function demoUnsafeAssertion(): string {
 
 parseApiNote(value: unknown): ApiNote</code></pre>
           <h3>运行规则</h3><ul><li>value 必须是非 null、非数组对象。</li><li>id 与 title 必须是非空白字符串。</li><li>tags 必须是数组，且每项都是字符串。</li><li>成功保留原 id/title 文本，复制 tags 后返回新对象。</li><li>任一检查失败抛出 <code>Error("Invalid API note")</code>。</li></ul>
-          <h3>实现限制</h3><p>从 unknown 逐层收窄；不要使用 any、as、非空断言、JSON stringify 比较或外部校验库。Lab 前保留 <code>/** @lab */</code>。</p>
+          <h3>实现限制</h3><p>从 unknown 逐层收窄；不要使用 any、as、非空断言、JSON stringify 比较或外部校验库。</p>
+          <p>保存 <code>src/lesson-21.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 21</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 普通对象</summary><p>先检查 typeof、null 与 Array.isArray；通过后可用 <code>Record&lt;string, unknown&gt;</code> 的局部谓词辅助。</p></details><details><summary>提示 2 · 字段</summary><p>分别读取 id、title、tags，再一次判断所有条件。</p></details><details><summary>提示 3 · 返回</summary><p><code>{ id, title, tags: [...tags] }</code>。</p></details></section>
@@ -95,7 +95,6 @@ parseApiNote(value: unknown): ApiNote</code></pre>
   readonly tags: readonly string[];
 };
 
-/** @lab */
 export function parseApiNote(value: unknown): ApiNote {
   function isRecord(input: unknown): input is Record&lt;string, unknown&gt; {
     return typeof input === "object" &amp;&amp; input !== null &amp;&amp; !Array.isArray(input);

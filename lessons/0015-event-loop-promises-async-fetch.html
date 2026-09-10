@@ -46,7 +46,7 @@
         <header class="lesson-header">
           <h1>等待一个结果，不等于堵住整个线程</h1>
           <p class="lesson-lead">Promise 表示未来的完成结果；await 暂停当前 async 函数，把继续执行安排到 Promise 反应任务中。Node 的事件循环可以在等待 I/O 时推进其他回调，但任何正在运行的 JavaScript 回调仍会执行到结束。</p>
-          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-15.ts</code>，异步案例仍写成导出的无参函数；runner 会 await 返回值；参数化 Lab 前添加 <code>/** @lab */</code>。</div>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-15.ts</code>，异步案例仍写成导出的无参函数；runner 会 await 返回值；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section task-card">
@@ -263,7 +263,7 @@
           <div class="example">
             <h3>自动发现并运行异步案例</h3>
             <pre><code>pnpm examples 15</code></pre>
-            <p>runner 对每个无参导出函数执行 await，因此日志显示最终值而不是 Promise 对象；带 <code>/** @lab */</code> 的 loadNoteTitles 仍由单课验收提供参数。</p>
+            <p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p>
           </div>
         </section>
 
@@ -344,10 +344,11 @@ loadNoteTitles(
               <li>使用 async/await、map 与 Promise.all。</li>
               <li>不要使用 for/for...of/while、串行 await、计时器、fetch、catch、allSettled、race、any、unknown 或类型断言。</li>
               <li>不要排序结果，也不要按完成顺序 push。</li>
-              <li>Lab 函数前保留 <code>/** @lab */</code>。</li>
+              <li>Lab 保持普通函数导出，由课程 HTML 自动识别。</li>
             </ul>
           </div>
           <p>loader 是注入的异步边界，因此测试能精确控制完成顺序而不访问网络。第 16 课会在这个边界上加入 Error、Result 与 AbortSignal。</p>
+          <p>保存 <code>src/lesson-15.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 15</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -392,7 +393,6 @@ loadNoteTitles(
 export type NoteLoader =
   (id: string) =&gt; Promise&lt;LoadedNote&gt;;
 
-/** @lab */
 export async function loadNoteTitles(
   ids: readonly string[],
   loadNote: NoteLoader,
@@ -403,11 +403,10 @@ export async function loadNoteTitles(
               <dl class="line-notes">
                 <dt>第 1–4 行</dt><dd>LoadedNote 描述异步边界完成后提供的数据；id 对消费者只读。</dd>
                 <dt>第 6–7 行</dt><dd>NoteLoader 把一个 string id 映射为未来的 LoadedNote。</dd>
-                <dt>第 9 行</dt><dd>@lab 让自动 runner 不调用需要 ids 与 loader 的函数。</dd>
-                <dt>第 10–13 行</dt><dd>async 函数公开 Promise&lt;string[]&gt;，同时接受 readonly ids。</dd>
-                <dt>第 14 行</dt><dd>map 立即启动所有 loader；Promise.all 等待并按输入位置生成 notes，拒绝则原样传播。</dd>
-                <dt>第 15 行</dt><dd>所有数据就绪后同步提取 title；空 notes 自然得到空数组。</dd>
-                <dt>第 16 行</dt><dd>函数结束；没有串行循环、排序、计时或网络依赖。</dd>
+                <dt>第 9–12 行</dt><dd>async 函数公开 Promise&lt;string[]&gt;，同时接受 readonly ids。</dd>
+                <dt>第 13 行</dt><dd>map 立即启动所有 loader；Promise.all 等待并按输入位置生成 notes，拒绝则原样传播。</dd>
+                <dt>第 14 行</dt><dd>所有数据就绪后同步提取 title；空 notes 自然得到空数组。</dd>
+                <dt>第 15 行</dt><dd>函数结束；没有串行循环、排序、计时或网络依赖。</dd>
               </dl>
             </div>
           </details>

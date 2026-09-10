@@ -46,7 +46,7 @@
         <header class="lesson-header">
           <h1>空值必须进入类型，外部值必须先证明</h1>
           <p class="lesson-lead"><code>null</code> 与 <code>undefined</code> 是真实运行时值；<code>unknown</code> 则把“尚未知道”保留到边界检查之后。你将区分缺失、空值与未知输入，用 JavaScript 检查换取 TypeScript 中更精确的类型。</p>
-          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-08.ts</code>，按顺序保存导出的无参案例；带参数 helper 放在案例内部；Lab 前添加 <code>/** @lab */</code>，危险案例保持非导出并添加 <code>/** @example-skip */</code>。</div>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-08.ts</code>，按顺序保存导出的无参案例；带参数 helper 放在案例内部；Lab 由课程 HTML 自动识别，无需特殊注释。危险案例保持非导出。</div>
         </header>
 
         <section id="task" class="lesson-section task-card">
@@ -179,8 +179,7 @@ export function demoOptionalBody(): string {
           <p>任何值都能赋给 unknown，但 unknown 不能直接赋给 string，也不能直接调用 <code>trim()</code>。每个运行时检查都提供新证据。unknown 适合文件内容、网络响应、用户输入和动态库返回值进入已建模代码的那一刻。</p>
 
           <h3>8. <code>any</code> 不是“更宽的 unknown”，而是关闭检查</h3>
-          <pre><code>/** @example-skip */
-function demoUnsafeTitleLength(): number {
+          <pre><code>function demoUnsafeTitleLength(): number {
   const value: any = { title: "Draft" };
   return value.title.trim().length;
 }</code></pre>
@@ -254,8 +253,7 @@ function demoUnsafeTitleLength(): number {
 
           <div class="example">
             <h3>示例 C：非空断言只消除诊断</h3>
-            <pre><code>/** @example-skip */
-function demoUnsafeFirstTitle(): string {
+            <pre><code>function demoUnsafeFirstTitle(): string {
   function unsafeFirstTitle(titles: string[]): string {
     return titles[0]!.toUpperCase();
   }
@@ -268,7 +266,7 @@ function demoUnsafeFirstTitle(): string {
           <div class="example">
             <h3>自动发现并运行案例</h3>
             <pre><code>pnpm examples 08</code></pre>
-            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+            <p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p>
           </div>
         </section>
 
@@ -336,6 +334,7 @@ function demoUnsafeFirstTitle(): string {
             </ul>
           </div>
           <p>本课只读取一个字段并折叠失败为 undefined，不解析完整 Note、不收集错误路径、不处理版本。结构化运行时校验留到第 21 课。</p>
+          <p>保存 <code>src/lesson-08.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 08</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -372,8 +371,7 @@ function demoUnsafeFirstTitle(): string {
           <details>
             <summary>显示完整答案</summary>
             <div class="details-body">
-              <pre><code>/** @lab */
-export function readNoteTitle(value: unknown): string | undefined {
+              <pre><code>export function readNoteTitle(value: unknown): string | undefined {
   if (value === null || typeof value !== "object" || !("title" in value)) {
     return undefined;
   }

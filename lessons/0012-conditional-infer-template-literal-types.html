@@ -46,7 +46,7 @@
         <header class="lesson-header">
           <h1>让输入类型决定输出类型，同时保持运行时实现诚实</h1>
           <p class="lesson-lead">条件类型根据可赋值关系选择结果，infer 从匹配结构中提取类型，模板字面量类型把字符串字面量组合成新协议。三者共同表达“输入结构变化，输出类型随之变化”，但都不会生成运行时代码。</p>
-          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-12.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-12.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section task-card">
@@ -276,7 +276,7 @@
           <div class="example">
             <h3>自动发现并运行案例</h3>
             <pre><code>pnpm examples 12</code></pre>
-            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+            <p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p>
           </div>
         </section>
 
@@ -350,10 +350,11 @@ createNoteEvent&lt;Kind extends string&gt;(
               <li>返回由普通模板字符串创建的 <code>note:${kind}</code>。</li>
               <li>接受任意 string，包括 "add"、"list"、"archive" 与自定义字符串。</li>
               <li>不要使用 any、unknown、类型断言、重载、分支、查找表或字符串替换。</li>
-              <li>Lab 函数前保留 <code>/** @lab */</code>，让示例 runner 忽略带参数的验收函数。</li>
+              <li>Lab 保持普通函数导出，由课程 HTML 自动识别。</li>
             </ul>
           </div>
           <p>本课只证明编译期关系并创建一个字符串。第 13 课会把类型擦除、词法作用域、闭包与原型放回 JavaScript / Node 的真实执行过程。</p>
+          <p>保存 <code>src/lesson-12.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 12</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -397,7 +398,6 @@ createNoteEvent&lt;Kind extends string&gt;(
 
 export type NoteEvent&lt;T&gt; = `note:${KindOf&lt;T&gt;}`;
 
-/** @lab */
 export function createNoteEvent&lt;Kind extends string&gt;(
   kind: Kind,
 ): `note:${Kind}` {
@@ -406,10 +406,9 @@ export function createNoteEvent&lt;Kind extends string&gt;(
               <dl class="line-notes">
                 <dt>第 1–4 行</dt><dd>KindOf 让联合成员分别匹配 readonly kind；infer 提取受 string 约束的 Kind，不匹配成员变成 never。</dd>
                 <dt>第 6 行</dt><dd>NoteEvent 把提取出的每个 kind 字面量加上 note: 前缀；联合会自动展开。</dd>
-                <dt>第 8 行</dt><dd>@lab 告诉自动示例 runner 不要执行这个带参数的验收函数。</dd>
-                <dt>第 9–11 行</dt><dd>泛型 Kind 保留输入字符串字面量，返回模板类型描述同一个 Kind 与输出的关系。</dd>
-                <dt>第 12 行</dt><dd>JavaScript 模板字符串创建真实返回值；没有断言、映射表或运行时类型对象。</dd>
-                <dt>第 13 行</dt><dd>函数结束；条件类型与 infer 在编译后均被擦除。</dd>
+                <dt>第 8–10 行</dt><dd>泛型 Kind 保留输入字符串字面量，返回模板类型描述同一个 Kind 与输出的关系。</dd>
+                <dt>第 11 行</dt><dd>JavaScript 模板字符串创建真实返回值；没有断言、映射表或运行时类型对象。</dd>
+                <dt>第 12 行</dt><dd>函数结束；条件类型与 infer 在编译后均被擦除。</dd>
               </dl>
             </div>
           </details>

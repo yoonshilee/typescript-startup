@@ -16,7 +16,7 @@
           <p class="eyebrow">NODE FS · PATH · JSON · PROCESS</p>
           <h1>持久化先确定路径和编码，再讨论对象</h1>
           <p class="lead">内存对象不会自动成为文件。Node 的 <code>node:fs/promises</code> 负责异步 I/O，<code>node:path</code> 负责平台路径，JSON 负责把可序列化值变成文本；进程当前目录只是路径解析的一个输入。</p>
-          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-18.ts</code>。案例继续使用顶层零参数导出函数；带 filePath 与 notes 参数的 Lab 用 <code>/** @lab */</code> 标记。</div>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-18.ts</code>。案例继续使用顶层零参数导出函数；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>persistNotes(filePath, notes)</code>：创建父目录，以 UTF-8 写入稳定、可读、换行结尾的 JSON。</p><ul><li>区分相对路径、绝对路径与 cwd。</li><li>使用 path.join/dirname，不手写系统分隔符。</li><li>理解 JSON.stringify 丢失 undefined、函数与原型。</li><li>按顺序 await mkdir 与 writeFile。</li></ul></section>
@@ -75,7 +75,7 @@ export function demoJoinedPath() {
 
         <section id="examples" class="lesson-section"><h2>补充观察与运行</h2>
 
-          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 18</code></pre><p>异步文件案例会被 await；参数化持久化 Lab 被 <code>/** @lab */</code> 排除。</p></div>
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 18</code></pre><p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p></div>
         </section>
 
         <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>用字符串拼接路径。</strong>跨平台分隔符与重复斜杠会出错。</li><li><strong>不写 encoding。</strong>readFile 默认返回 Buffer。</li><li><strong>忘记 await 写入。</strong>进程可能在数据落盘前结束。</li><li><strong>把 JSON.parse 当成校验。</strong>它只保证语法，不能证明字段结构。</li><li><strong>直接保存 Map、Error 或 class。</strong>JSON 不保留这些运行时语义。</li><li><strong>并发写同一文件。</strong>writeFile 调用必须由应用串行化。</li></ul></section>
@@ -96,7 +96,8 @@ persistNotes(
   notes: readonly PersistedNote[],
 ): Promise&lt;void&gt;</code></pre>
           <h3>运行规则</h3><ul><li>用 <code>path.dirname(filePath)</code> 得到父目录。</li><li>先 <code>mkdir(..., { recursive: true })</code>。</li><li>把 notes 复制成普通数组，以两空格格式化并加末尾换行。</li><li>用 UTF-8 writeFile，完成后 Promise 才 fulfilled。</li></ul>
-          <h3>实现限制</h3><p>使用 Node 标准库；不要 catch、同步 I/O、全局 cwd、类型断言或原子临时文件。Lab 前保留 <code>/** @lab */</code>。</p>
+          <h3>实现限制</h3><p>使用 Node 标准库；不要 catch、同步 I/O、全局 cwd、类型断言或原子临时文件。</p>
+          <p>保存 <code>src/lesson-18.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 18</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 父目录</summary><p><code>dirname(filePath)</code>。</p></details><details><summary>提示 2 · 稳定文本</summary><p><code>JSON.stringify([...notes], null, 2) + "\n"</code>。</p></details><details><summary>提示 3 · 写入顺序</summary><p>await mkdir，再 await writeFile。</p></details></section>
@@ -111,7 +112,6 @@ export type PersistedNote = {
   readonly title: string;
 };
 
-/** @lab */
 export async function persistNotes(
   filePath: string,
   notes: readonly PersistedNote[],

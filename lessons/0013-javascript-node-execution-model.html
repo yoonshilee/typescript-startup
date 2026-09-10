@@ -46,7 +46,7 @@
         <header class="lesson-header">
           <h1>类型检查结束后，真正运行的是 JavaScript</h1>
           <p class="lesson-lead">Node 创建执行上下文、压入函数调用、按词法作用域寻找绑定，并沿对象原型链查找属性。TypeScript 类型帮助编译器拒绝错误，却不会进入调用栈、闭包或对象；理解这条边界，才能预测程序实际做什么。</p>
-          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-13.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-13.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section task-card">
@@ -225,8 +225,7 @@
           <p><code>spread</code> 的两项都是 false。展开只复制自有可枚举属性 title，不复制 [[Prototype]]；因此第 11 课的更新函数明确只面向普通数据对象。</p>
 
           <h3>9. 从对象上拆下依赖 this 的方法会失去接收者</h3>
-          <pre><code>/** @example-skip */
-function demoDetachedMethod(): string {
+          <pre><code>function demoDetachedMethod(): string {
   class Note {
     title = "Draft";
 
@@ -239,7 +238,7 @@ function demoDetachedMethod(): string {
   const describe = note.describe;
   return describe();
 }</code></pre>
-          <p>模块以严格模式执行，独立调用 describe 时 this 是 undefined，因此该案例会抛错。它保持非导出并标记 <code>/** @example-skip */</code>，不会被自动 runner 执行；危险行为仍可见，而不是藏进正常案例。</p>
+          <p>模块以严格模式执行，独立调用 describe 时 this 是 undefined，因此该案例会抛错。它保持非导出，不会被自动 runner 执行；危险行为仍可见，而不是藏进正常案例。</p>
 
           <h3>10. bind 显式创建固定接收者的新函数</h3>
           <pre><code>export function demoBoundMethod(): string {
@@ -314,7 +313,7 @@ function demoDetachedMethod(): string {
           <div class="example">
             <h3>自动发现并运行案例</h3>
             <pre><code>pnpm examples 13</code></pre>
-            <p>脚本按源码顺序执行导出的无参案例；危险的 detached method 已用 <code>/** @example-skip */</code> 排除，带 <code>/** @lab */</code> 的参数化 Lab 也不会误执行。</p>
+            <p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p>
           </div>
         </section>
 
@@ -391,10 +390,11 @@ createNoteFactory(
               <li>prefix 与 title 都必须是 string，结果 id 对调用方只读。</li>
               <li>不要 trim、转换大小写或修改 prefix/title。</li>
               <li>不要使用全局变量、class、静态属性、数组历史、Map、any、unknown 或类型断言。</li>
-              <li>Lab 函数前保留 <code>/** @lab */</code>，让自动示例 runner 跳过它。</li>
+              <li>Lab 保持普通函数导出，由课程 HTML 自动识别。</li>
             </ul>
           </div>
           <p>一个闭包和一个数字绑定已经满足需求。第 14 课会把这个工厂放进真实 ESM 模块，并解释导入时模块如何被解析与复用。</p>
+          <p>保存 <code>src/lesson-13.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 13</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -436,7 +436,6 @@ createNoteFactory(
   title: string;
 };
 
-/** @lab */
 export function createNoteFactory(
   prefix: string,
 ): (title: string) =&gt; CreatedNote {
@@ -453,12 +452,11 @@ export function createNoteFactory(
 }</code></pre>
               <dl class="line-notes">
                 <dt>第 1–4 行</dt><dd>CreatedNote 描述返回数据；readonly id 是静态写入限制，不会冻结对象。</dd>
-                <dt>第 6 行</dt><dd>@lab 让示例 runner 排除这个带参数函数。</dd>
-                <dt>第 7–9 行</dt><dd>工厂接收 prefix，并返回接收 title 的函数；两层签名对应两个调用阶段。</dd>
-                <dt>第 10 行</dt><dd>每次外层调用创建独立 nextId 绑定，初始值为 1。</dd>
-                <dt>第 12–16 行</dt><dd>返回闭包读取 prefix 与当前 nextId，创建新的普通对象并原样保存 title。</dd>
-                <dt>第 17–18 行</dt><dd>只更新当前闭包的 nextId，再返回新对象；另一工厂的状态不受影响。</dd>
-                <dt>第 19–20 行</dt><dd>内外函数结束；没有全局状态、类、集合或类型断言。</dd>
+                <dt>第 6–8 行</dt><dd>工厂接收 prefix，并返回接收 title 的函数；两层签名对应两个调用阶段。</dd>
+                <dt>第 9 行</dt><dd>每次外层调用创建独立 nextId 绑定，初始值为 1。</dd>
+                <dt>第 11–15 行</dt><dd>返回闭包读取 prefix 与当前 nextId，创建新的普通对象并原样保存 title。</dd>
+                <dt>第 16–17 行</dt><dd>只更新当前闭包的 nextId，再返回新对象；另一工厂的状态不受影响。</dd>
+                <dt>第 18–19 行</dt><dd>内外函数结束；没有全局状态、类、集合或类型断言。</dd>
               </dl>
             </div>
           </details>

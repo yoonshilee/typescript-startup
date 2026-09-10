@@ -1,25 +1,11 @@
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { EXPORTED_FUNCTION_PATTERN, readLabNames } from "./course-contract.mjs";
 
 const LESSON_PATTERN = /^\d{2}$/;
 const FUNCTION_NAME = "([A-Za-z_$][\\w$]*)";
-const EXPORTED_FUNCTION_PATTERN = new RegExp(
-  `^export (?:async\\s+)?function\\s+${FUNCTION_NAME}(?:<[^\\n]+>)?\\s*\\(`,
-  "gm",
-);
 const ZERO_ARGUMENT_EXPORT_PATTERN = new RegExp(
   `^export (?:async\\s+)?function\\s+${FUNCTION_NAME}(?:<[^\\n]+>)?\\s*\\(\\s*\\)`,
-  "gm",
-);
-const LAB_PATTERN = new RegExp(
-  `/\\*\\*\\s*@lab\\s*\\*/\\s*export (?:async\\s+)?function\\s+${FUNCTION_NAME}`,
-  "g",
-);
-const SKIPPED_EXAMPLE_PATTERN = new RegExp(
-  `/\\*\\*\\s*@example-skip\\s*\\*/\\s*(?:async\\s+)?function\\s+${FUNCTION_NAME}`,
-  "g",
-);
-const ZERO_ARGUMENT_PRIVATE_PATTERN = new RegExp(
-  `^(?:async\\s+)?function\\s+${FUNCTION_NAME}(?:<[^\\n]+>)?\\s*\\(\\s*\\)`,
   "gm",
 );
 
@@ -27,10 +13,8 @@ function collectNames(source, pattern) {
   return new Set([...source.matchAll(pattern)].map((match) => match[1]));
 }
 
-export function findExampleNames(source, sourceName = "lesson source") {
+export function findExampleNames(source, labNames, sourceName = "lesson source") {
   // ponytail: scans the course's fixed top-level function style; use a parser if authoring syntax expands.
-  const labNames = collectNames(source, LAB_PATTERN);
-  const skippedNames = collectNames(source, SKIPPED_EXAMPLE_PATTERN);
   const zeroArgumentNames = collectNames(source, ZERO_ARGUMENT_EXPORT_PATTERN);
   const exportedFunctions = [...source.matchAll(EXPORTED_FUNCTION_PATTERN)];
 
@@ -38,15 +22,6 @@ export function findExampleNames(source, sourceName = "lesson source") {
     const name = match[1];
     if (!labNames.has(name) && !zeroArgumentNames.has(name)) {
       throw new Error(`Example ${name} in ${sourceName} must not declare parameters.`);
-    }
-  }
-
-  for (const match of source.matchAll(ZERO_ARGUMENT_PRIVATE_PATTERN)) {
-    const name = match[1];
-    if (!skippedNames.has(name)) {
-      throw new Error(
-        `Top-level function ${name} in ${sourceName} must be exported or marked @example-skip.`,
-      );
     }
   }
 
@@ -77,7 +52,8 @@ async function main() {
     throw error;
   }
 
-  const exampleNames = findExampleNames(source, sourceName);
+  const labNames = await readLabNames(fileURLToPath(new URL("..", import.meta.url)), lesson);
+  const exampleNames = findExampleNames(source, labNames, sourceName);
   if (exampleNames.length === 0) {
     throw new Error(`Lesson ${lesson} examples unavailable: export at least one zero-argument example.`);
   }

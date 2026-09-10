@@ -25,7 +25,7 @@
           <p class="eyebrow">TOOLCHAIN · PACKAGE CONTRACT · EMIT</p>
           <h1>检查回答“源码是否合法”，构建回答“运行什么产物”</h1>
           <p class="lead">package.json 描述包与命令入口，pnpm 解析并运行脚本，tsconfig 决定 TypeScript 怎样检查与生成 JavaScript。它们不是三个互相替代的配置文件，而是一条可以逐段验证的执行链。</p>
-          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-17.ts</code>。所有案例保持顶层、命名、零参数导出；带参数的 Lab 前添加 <code>/** @lab */</code>。</div>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-17.ts</code>。所有案例保持顶层、命名、零参数导出；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section">
@@ -94,7 +94,7 @@
           <div class="example"><h3>示例 A：脚本可以组合脚本</h3><pre><code>export function demoScriptComposition(): string {
   return "pnpm validate &amp;&amp; pnpm typecheck &amp;&amp; pnpm test";
 }</code></pre><p><code>&amp;&amp;</code> 在前一步成功后才继续，失败退出码能阻止后续步骤。</p></div>
-          <div class="example"><h3>示例 B：自动发现本课案例</h3><pre><code>pnpm examples 17</code></pre><p>runner 按源码顺序执行零参数导出函数；<code>createBuildPlan</code> 因 <code>/** @lab */</code> 被排除。</p></div>
+          <div class="example"><h3>示例 B：自动发现本课案例</h3><pre><code>pnpm examples 17</code></pre><p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p></div>
         </section>
 
         <section id="pitfalls" class="lesson-section">
@@ -128,7 +128,8 @@ createBuildPlan(
 ): BuildStep[]</code></pre>
           <h3>运行规则</h3>
           <ul><li>固定按 check、test、build 顺序检查。</li><li>脚本存在且不是空字符串时加入结果。</li><li>command 原样保留，不执行、不解析 shell。</li><li>不修改输入对象；没有任何脚本时返回空数组。</li></ul>
-          <h3>实现限制</h3><p>只需一个固定名称数组和循环；不要读取真实 package.json、启动子进程或新增配置抽象。Lab 前保留 <code>/** @lab */</code>。</p>
+          <h3>实现限制</h3><p>只需一个固定名称数组和循环；不要读取真实 package.json、启动子进程或新增配置抽象。</p>
+          <p>保存 <code>src/lesson-17.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 17</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -155,7 +156,6 @@ export type BuildStep = {
   readonly command: string;
 };
 
-/** @lab */
 export function createBuildPlan(
   scripts: Readonly&lt;Record&lt;string, string | undefined&gt;&gt;,
 ): BuildStep[] {

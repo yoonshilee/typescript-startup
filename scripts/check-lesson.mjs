@@ -1,28 +1,28 @@
 import { spawnSync } from "node:child_process";
+import { lessonFileName, readLabNames } from "./course-contract.mjs";
 
-const PUBLISHED_LESSONS = new Set([
-  "01", "02", "03", "04", "05", "06", "07", "08",
-  "09", "10", "11", "12", "13", "14", "15", "16",
-  "17", "18", "19", "20", "21", "22", "23", "24",
-]);
-const lesson = process.argv[2];
-
-if (!lesson || !PUBLISHED_LESSONS.has(lesson)) {
-  console.error("Usage: pnpm lesson <01..24>");
-  process.exit(2);
+export function lessonTestArgs(lesson) {
+  lessonFileName(lesson);
+  return ["--test", "--test-name-pattern", `^${lesson} `, "tests/lessons.test.ts"];
 }
 
-const testResult = spawnSync(
-  process.execPath,
-  [
-    "--test",
-    "--test-name-pattern",
-    `^${lesson} `,
-    "tests/lessons.test.ts",
-  ],
-  { stdio: "inherit" },
-);
+if (import.meta.main) {
+  const lesson = process.argv[2];
+  let args;
+  try {
+    args = lessonTestArgs(lesson);
+  } catch {
+    console.error("Usage: pnpm lesson <01..24>");
+    process.exit(2);
+  }
 
-if (testResult.status !== 0) {
-  process.exit(testResult.status ?? 1);
+  try {
+    await readLabNames(process.cwd(), lesson);
+    const result = spawnSync(process.execPath, args, { stdio: "inherit" });
+    if (result.error) throw result.error;
+    process.exitCode = result.status ?? 1;
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }

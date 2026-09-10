@@ -46,7 +46,7 @@
         <header class="lesson-header">
           <h1>变量装的是值，不是 Java 式的固定盒子</h1>
           <p class="lesson-lead">你会从 JavaScript 真正拥有的值出发，理解 <code>const</code>、<code>let</code>、严格相等、truthiness 和只有一种常用数值类型带来的后果。</p>
-          <div class="callout"><strong>本课代码文件：</strong>把所有 TypeScript 练习依次放入 <code>src/lesson-02.ts</code>。可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+          <div class="callout"><strong>本课代码文件：</strong>把所有 TypeScript 练习依次放入 <code>src/lesson-02.ts</code>。可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section task-card">
@@ -219,7 +219,7 @@
           <div class="example">
             <h3>自动发现并运行案例</h3>
             <pre><code>pnpm examples 02</code></pre>
-            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+            <p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p>
           </div>
         </section>
 
@@ -274,6 +274,7 @@
             </ul>
           </div>
           <p>这个 Lab 很短，但目标重要：让代码表达“清理后仍有字符”，而不是表达“原值碰巧是真值”。</p>
+          <p>保存 <code>src/lesson-02.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 02</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -310,8 +311,7 @@
           <details>
             <summary>显示完整答案</summary>
             <div class="details-body">
-              <pre><code>/** @lab */
-export function isMeaningfulTitle(title: string): boolean {
+              <pre><code>export function isMeaningfulTitle(title: string): boolean {
   return title.trim().length &gt; 0;
 }</code></pre>
               <dl class="line-notes">

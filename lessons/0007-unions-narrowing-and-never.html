@@ -46,7 +46,7 @@
         <header class="lesson-header">
           <h1>联合列出所有可能，控制流逐步排除不可能</h1>
           <p class="lesson-lead">联合类型不是“放弃确定性”，而是把有限可能写进契约。你将用真实 JavaScript 检查缩小候选集合，用共同字面量字段建立判别联合，并让 <code>never</code> 在新增分支未处理时触发编译错误。</p>
-          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-07.ts</code>，按顺序保存类型与导出的无参案例；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>，必要类型可继续导出。</div>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-07.ts</code>，按顺序保存类型与导出的无参案例；带参数 helper 放在案例内部；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section task-card">
@@ -327,7 +327,7 @@ export function demoParseCount(): string {
           <div class="example">
             <h3>自动发现并运行案例</h3>
             <pre><code>pnpm examples 07</code></pre>
-            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+            <p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p>
           </div>
         </section>
 
@@ -407,6 +407,7 @@ export function demoParseCount(): string {
             </ul>
           </div>
           <p>本课只把命令建模并输出可观察描述，不解析终端参数、不执行命令、不读写文件。真正 CLI 协议在第 19 课实现。</p>
+          <p>保存 <code>src/lesson-07.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 07</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -456,7 +457,6 @@ function assertNever(value: never): never {
   throw new Error(`Unexpected command: ${JSON.stringify(value)}`);
 }
 
-/** @lab */
 export function describeCommand(command: NoteCommand): string {
   switch (command.kind) {
     case "add":

@@ -46,7 +46,7 @@
         <header class="lesson-header">
           <h1>控制流决定路径，函数组织可复用步骤</h1>
           <p class="lesson-lead">本课继续建立语法手感：用条件和循环选择路径，把函数当作值传递或返回。返回函数为什么能继续使用外层变量，留到第 13 课结合 JavaScript 与 Node 的执行模型解释。</p>
-          <div class="callout"><strong>本课代码文件：</strong>把所有 TypeScript 练习依次放入 <code>src/lesson-03.ts</code>。可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+          <div class="callout"><strong>本课代码文件：</strong>把所有 TypeScript 练习依次放入 <code>src/lesson-03.ts</code>。可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section task-card">
@@ -206,7 +206,7 @@
           <div class="example">
             <h3>自动发现并运行案例</h3>
             <pre><code>pnpm examples 03</code></pre>
-            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+            <p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p>
           </div>
         </section>
 
@@ -259,6 +259,7 @@
             </ul>
           </div>
           <p>这不是为了少写一次 <code>trim()</code>，而是为了练习“一次配置，生成一个处理函数”的代码形状。它为什么有效，第 13 课会再展开。</p>
+          <p>保存 <code>src/lesson-03.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 03</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -295,8 +296,7 @@
           <details>
             <summary>显示完整答案</summary>
             <div class="details-body">
-              <pre><code>/** @lab */
-export function createTagNormalizer(
+              <pre><code>export function createTagNormalizer(
   prefix: string,
 ): (tag: string) =&gt; string {
   const normalizedPrefix = prefix.trim().toLowerCase();

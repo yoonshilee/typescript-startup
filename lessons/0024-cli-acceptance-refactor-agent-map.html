@@ -6,7 +6,7 @@
     <main class="lesson-layout">
       <aside class="lesson-rail" aria-label="课程目录"><p>LESSON 24 / 24</p><p>建议 120 分钟</p><p>用证据结束课程</p><p>Lab 24</p><ol><li><a href="#task">任务</a></li><li><a href="#mental-model">模型</a></li><li><a href="#lab">Lab</a></li><li><a href="#quiz">测验</a></li></ol></aside>
       <article id="lesson" class="lesson-paper">
-        <header class="lesson-title"><p class="eyebrow">ACCEPTANCE · ORCHESTRATION · REFACTOR · AGENT MAP</p><h1>最后一课不增加框架：把已经学会的边界连接并验证</h1><p class="lead">完整 CLI 由解析、命令编排、持久化、输出和进程入口组成。最终重构只删除重复、缩短依赖链并保留行为；Agent 能力建立在这些可测试函数之上，而不是绕过类型、验证和用户确认。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-24.ts</code>。复盘案例保持顶层零参数导出；依赖注入的命令编排 Lab 用 <code>/** @lab */</code> 标记。</div></header>
+        <header class="lesson-title"><p class="eyebrow">ACCEPTANCE · ORCHESTRATION · REFACTOR · AGENT MAP</p><h1>最后一课不增加框架：把已经学会的边界连接并验证</h1><p class="lead">完整 CLI 由解析、命令编排、持久化、输出和进程入口组成。最终重构只删除重复、缩短依赖链并保留行为；Agent 能力建立在这些可测试函数之上，而不是绕过类型、验证和用户确认。</p><div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-24.ts</code>。复盘案例保持顶层零参数导出；Lab 由课程 HTML 自动识别，无需特殊注释。</div></header>
 
         <section id="task" class="lesson-section"><h2>任务卡</h2><p><strong>完成物：</strong>实现 <code>executeNoteCommand(command, dependencies)</code>，为 add/list/help 返回结构化 CliResult，捕获依赖失败并保持 stdout、stderr 与退出码一致。</p><ul><li>把 17–23 课组成一条端到端验收链。</li><li>在纯命令编排和真实 process 之间保留边界。</li><li>只在测试保护下重构。</li><li>用能力、输入、工具、副作用与确认点描述 Agent，而非“自动做一切”。</li></ul></section>
 
@@ -60,7 +60,7 @@
           <div class="example"><h3>示例 A：Agent 不直接拿文件写权限</h3><pre><code>export function demoAgentWriteBoundary(): string {
   return "model output -&gt; validation -&gt; approved command -&gt; repository";
 }</code></pre><p>确定性边界让未来 Agent 功能复用同一测试与持久化契约。</p></div>
-          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 24</code></pre><p>复盘案例按源码顺序运行；带 command 与 dependencies 的 Lab 用 <code>/** @lab */</code> 排除。</p></div>
+          <div class="example"><h3>自动发现并运行案例</h3><pre><code>pnpm examples 24</code></pre><p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p></div>
         </section>
 
         <section id="pitfalls" class="lesson-section"><h2>常见误区</h2><ul><li><strong>入口同时解析、读写、格式化。</strong>任何测试都必须启动完整进程。</li><li><strong>空列表返回失败。</strong>把正常状态误报成异常。</li><li><strong>catch 后只返回字符串。</strong>调用者失去退出码与输出流信息。</li><li><strong>为了“架构”新增多层接口。</strong>两个函数依赖已足够表达边界。</li><li><strong>重构时改变测试期望。</strong>无法证明行为保持。</li><li><strong>让 Agent 生成任意 shell。</strong>应提供窄、验证过、可审计的能力。</li><li><strong>只说本地绿色就是发布成功。</strong>安装、权限和真实环境仍需独立验收。</li></ul></section>
@@ -85,7 +85,8 @@ executeNoteCommand(
   dependencies: CliDependencies,
 ): Promise&lt;CliResult&gt;</code></pre>
           <h3>运行规则</h3><ul><li>help 不调用依赖，stdout 返回三条命令用法并以换行结束。</li><li>add 调用一次 add，成功输出 <code>Added id: title\n</code>。</li><li>list --json 输出两空格 JSON 与换行；普通 list 每行 <code>id\ttitle</code>，空列表输出空字符串。</li><li>任意依赖失败返回 exitCode 1、空 stdout 与规范化 <code>Error: message\n</code> stderr。</li><li>成功 exitCode 为 0 且 stderr 为空。</li></ul>
-          <h3>实现限制</h3><p>只做命令编排；不要读取 process、文件或 argv，不要引入 class、框架、日志器或 Agent SDK。用 never 保持命令穷尽；Lab 前保留 <code>/** @lab */</code>。</p>
+          <h3>实现限制</h3><p>只做命令编排；不要读取 process、文件或 argv，不要引入 class、框架、日志器或 Agent SDK。用 never 保持命令穷尽；</p>
+          <p>保存 <code>src/lesson-24.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 24</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 外层结构</summary><p>一个 try/catch 包住按 kind 分支。</p></details><details><summary>提示 2 · list 文本</summary><p>map 后 join("\n")，非空时再加末尾换行。</p></details><details><summary>提示 3 · 失败</summary><p>复用第 16 课的 <code>error instanceof Error ? error.message : String(error)</code>。</p></details></section>
@@ -107,7 +108,6 @@ export type CliResult = {
   readonly stderr: string;
 };
 
-/** @lab */
 export async function executeNoteCommand(
   command: FinalNoteCommand,
   dependencies: CliDependencies,

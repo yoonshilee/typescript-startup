@@ -46,7 +46,7 @@
         <header class="lesson-header">
           <h1>从一个真实对象契约派生视图，不复制第二份真相</h1>
           <p class="lesson-lead">列表摘要、局部更新和只读视图往往只是同一对象类型的不同形态。映射类型遍历已有键并转换属性修饰符；内置工具类型封装常见转换，让源类型变化时派生类型自动跟随。</p>
-          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-11.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 函数前添加 <code>/** @lab */</code>。</div>
+          <div class="callout"><strong>本课代码文件：</strong>创建 <code>src/lesson-11.ts</code>，可运行案例使用导出的无参函数；带参数 helper 放在案例内部；Lab 由课程 HTML 自动识别，无需特殊注释。</div>
         </header>
 
         <section id="task" class="lesson-section task-card">
@@ -304,7 +304,7 @@
           <div class="example">
             <h3>自动发现并运行案例</h3>
             <pre><code>pnpm examples 11</code></pre>
-            <p>脚本按源码顺序运行导出的无参案例，并显示函数名与返回值；带 <code>/** @lab */</code> 的 Lab 和带 <code>/** @example-skip */</code> 的危险案例不会执行。</p>
+            <p>脚本按 TS 源码顺序运行导出的无参案例，await 返回值并显示函数名与结果；本课 Lab 由课程 HTML 自动识别并排除，非导出函数不会被自动调用。</p>
           </div>
         </section>
 
@@ -383,6 +383,7 @@
             </ul>
           </div>
           <p>本课只处理已验证的普通数据对象。来自文件或网络的 unknown 仍需先验证；第 12 课才会解释 Omit 等工具内部使用的条件类型机制。</p>
+          <p>保存 <code>src/lesson-11.ts</code> 后，点击下方“校验练习”查看通过或失败结果；这与 <code>pnpm lesson 11</code> 使用同一套运行时与类型契约测试，不会执行折叠答案。</p>
         </section>
 
         <section id="hints" class="lesson-section">
@@ -419,8 +420,7 @@
           <details>
             <summary>显示完整答案</summary>
             <div class="details-body">
-              <pre><code>/** @lab */
-export function updateNote&lt;T extends { readonly id: string }&gt;(
+              <pre><code>export function updateNote&lt;T extends { readonly id: string }&gt;(
   note: T,
   changes: Partial&lt;Omit&lt;T, "id"&gt;&gt; &amp; { readonly id?: never },
 ): T {
