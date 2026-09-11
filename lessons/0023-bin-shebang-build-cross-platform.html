@@ -78,7 +78,54 @@ resolveCliPaths(projectRoot: string): CliPaths</code></pre>
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 根目录</summary><p><code>const root = path.resolve(projectRoot)</code>。</p></details><details><summary>提示 2 · 两个文件</summary><p>分别 join root + src + cli.ts 与 root + dist + cli.js。</p></details><details><summary>提示 3 · binTarget</summary><p>它是 package 元数据，不通过 path.join。</p></details></section>
 
-        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="0"><fieldset><legend>可安装 CLI 的路径契约是什么？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>bin指向编译后的JS，路径由path模块组合</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>bin直接指向TS源文件，路径用斜杠字符串拼接</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 1 题 · 可安装 CLI 的路径契约是什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>bin指向编译后的JS，路径由path模块组合</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>bin直接指向TS源文件，路径用斜杠字符串拼接</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · package.json 的 bin 目标为什么写包内相对路径？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>安装位置可以变化，目标仍随包一起定位</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>安装位置不会变化，目标总是开发机路径</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · shebang 在构建后的 CLI 文件中应位于哪里？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>放在最后行，供类 Unix 系统识别解释器</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>放在第一行，供类 Unix 系统识别解释器</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · 处理 file URL 与文件系统路径之间的转换，应该怎样做？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>直接删除协议前缀，所有路径字符都会兼容</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>使用标准转换函数，正确处理路径中的字符</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 确认 dist/cli.js 存在后，还需要怎样验证可安装命令？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>在临时环境安装后，运行公开命令查看帮助</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>在源码中查到函数后，就认定公开命令可用</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
 
         <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>import path from "node:path";
 

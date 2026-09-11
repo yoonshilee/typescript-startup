@@ -430,9 +430,45 @@ export function demoParseCount(): string {
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="0">
             <fieldset>
-              <legend>判别联合的所有成员都已处理后，默认分支中的值是什么类型？</legend>
+              <legend>第 1 题 · 判别联合的所有成员都已处理后，默认分支中的值是什么类型？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>已无任何可能的联合成员，类型变为 never</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>仍有全部可能的联合成员，类型保持为原联合类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · 对于 string | number 参数，为什么不能直接调用 toUpperCase()？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>数字成员不支持该方法，需要先收窄</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>联合成员都支持该方法，无需先收窄</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · 需要区分一个未知值是不是数组时，应该依赖什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>使用 typeof 检查返回结果是否为数组</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>使用 Array.isArray 检查数组</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · 将命令写成带 kind 的判别联合，相比一组可选 payload 字段有什么优势？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>所有命令共享可选数据，任意组合均被接受</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>每种命令绑定必需数据，非法组合可被拒绝</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 给 SaveState 新增 saving 成员却漏写 switch 分支时，assertNever(state) 为什么报类型错误？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>剩余成员仍是 saving，不能赋给 never</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>剩余成员已是 never，不能赋给 saving</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

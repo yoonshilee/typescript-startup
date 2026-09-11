@@ -348,9 +348,45 @@ createModuleNote(title: string): ModuleNote</code></pre>
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="1">
             <fieldset>
-              <legend><code>import type</code> 的运行时效果是什么？</legend>
+              <legend>第 1 题 · <code>import type</code> 的运行时效果是什么？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>在程序实际运行时加载对应模块并把所有声明导出保留到内存对象中</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>只在类型检查时引用声明并从输出 JavaScript 中擦除</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 从另一模块 import 一个可变计数绑定后，导出方更新它，导入方会读到什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>读到导入时的值，导入保存当时的值副本</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>读到更新后的值，导入保持对绑定的连接</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · Node ESM 中的相对模块说明符，应怎样处理扩展名？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>明确写出扩展名，让运行时定位实际文件</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>省略文件扩展名，让运行时自动猜测文件</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 同一进程再次导入完全相同的规范化模块 URL，顶层代码会怎样？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>复用既有模块记录，通常不会重新执行</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>创建新的模块记录，总是重新执行顶层</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · ESM 代码要定位相对于当前模块的资源，应从哪里出发？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>从 process.cwd() 定位模块内的资源</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>从 import.meta.url 定位模块资源</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

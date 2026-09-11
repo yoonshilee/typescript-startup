@@ -124,6 +124,67 @@ test("example and Lab panels reveal results without a loading placeholder", asyn
   });
 });
 
+test("five quizzes keep answers and retry feedback independent", async () => {
+  const quizzes = Array.from({ length: 5 }, (_, index) => {
+    const feedback = { dataset: {}, textContent: "" };
+    return {
+      dataset: { answer: String(index % 2) },
+      selected: "",
+      feedback,
+      querySelector: () => feedback,
+      addEventListener(_, handler) { this.submit = handler; },
+    };
+  });
+  runInNewContext(await readFile(new URL("../assets/course.js", import.meta.url), "utf8"), {
+    document: { querySelectorAll: () => quizzes },
+    window: { location: { pathname: "/" } },
+    FormData: class {
+      constructor(quiz) { this.get = () => quiz.selected; }
+    },
+  });
+  for (const [index, quiz] of quizzes.entries()) {
+    quiz.selected = String(1 - Number(quiz.dataset.answer));
+    quiz.submit({ preventDefault() {} });
+    assert.equal(quiz.feedback.dataset.state, "incorrect");
+    assert.match(quiz.feedback.textContent, /暂时不对/);
+    quiz.selected = quiz.dataset.answer;
+    quiz.submit({ preventDefault() {} });
+    assert.equal(quiz.feedback.dataset.state, "correct");
+    assert.match(quiz.feedback.textContent, /回答正确/);
+    for (const untouched of quizzes.slice(index + 1)) assert.equal(untouched.feedback.textContent, "");
+    for (const answered of quizzes.slice(0, index)) assert.equal(answered.feedback.dataset.state, "correct");
+  }
+});
+
+test("course validation requires five independent, balanced two-option quizzes", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "typescript-course-quizzes-"));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  await cp(new URL("../lessons", import.meta.url), join(root, "lessons"), { recursive: true });
+  await cp(new URL("../index.html", import.meta.url), join(root, "index.html"));
+  const lessonPath = join(root, "lessons/0001-typescript-javascript-node.html");
+  const html = await readFile(lessonPath, "utf8");
+  const forms = [...html.matchAll(/<form\b[^>]*data-quiz[^>]*>[\s\S]*?<\/form>/g)].map(([form]) => form);
+  const run = () => spawnSync(process.execPath, [join(import.meta.dirname, "../scripts/check-course.mjs")], { cwd: root, encoding: "utf8" });
+  const valid = run();
+  assert.equal(valid.status, 0, valid.stderr);
+
+  for (const [changed, expected] of [
+    [html.replace(forms[0], ""), /exactly 5 quizzes/],
+    [html.replace(forms[0], forms[0] + forms[0]), /exactly 5 quizzes/],
+    [html.replace(forms[1], forms[0]), /unique, non-empty question/],
+    [html.replace('data-answer="0"', 'data-answer="2"'), /valid answer/],
+    [html.replace('value="1" required', 'value="0" required'), /two distinct answer options/],
+    [html.replace('<span data-quiz-option>', '<span data-quiz-option>extra'), /equal character length/],
+    [html.replace('data-quiz-feedback aria-live="polite"', 'data-quiz-feedback'), /own submit button and aria-live feedback/],
+    [html.replaceAll(/data-answer="[01]"/g, 'data-answer="0"'), /balanced within the lesson/],
+  ]) {
+    await writeFile(lessonPath, changed);
+    const result = run();
+    assert.equal(result.status, 1, expected.source);
+    assert.match(result.stderr, expected);
+  }
+});
+
 test("course validation rejects duplicate and non-camelCase example names", async (context) => {
   const root = await mkdtemp(join(tmpdir(), "typescript-course-names-"));
   context.after(() => rm(root, { recursive: true, force: true }));

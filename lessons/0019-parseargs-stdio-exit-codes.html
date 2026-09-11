@@ -88,7 +88,54 @@ parseNoteCommand(argv: readonly string[]): NoteCommand</code></pre>
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 先拆结构</summary><p><code>const { positionals, values } = parseArgs(...)</code>。</p></details><details><summary>提示 2 · 命令在哪里</summary><p>用数组解构取得 command 与 rest。</p></details><details><summary>提示 3 · 标题</summary><p>add 分支检查 rest 长度与 <code>title.trim()</code>，但保留原 title。</p></details></section>
 
-        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="0"><fieldset><legend>parseArgs 应承担哪一层职责？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>parseArgs负责拆参数，业务函数负责命令语义</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>parseArgs负责执行业务，命令函数只负责打印</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 1 题 · parseArgs 应承担哪一层职责？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>parseArgs负责拆参数，业务函数负责命令语义</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>parseArgs负责执行业务，命令函数只负责打印</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · process.argv.slice(2) 为什么要跳过前两项？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前两项是运行时与入口路径，不是业务参数</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前两项是用户输入的选项，已经完成了校验</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · 成功数据与失败诊断分别应该写到哪里？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>成功数据写标准错误，失败诊断写标准输出</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>成功数据写标准输出，失败诊断写标准错误</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · 本课程用法错误与正常成功的退出码分别是什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>用法错误返回零，正常成功返回二</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>用法错误返回二，正常成功返回零</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 入口为什么设置 process.exitCode，而不立刻调用 process.exit()？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>让尚未完成的输出有机会正常写完</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>让尚未完成的输出被立即全部丢弃</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
 
         <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>import { parseArgs } from "node:util";
 

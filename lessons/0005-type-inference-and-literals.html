@@ -320,9 +320,45 @@
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="0">
             <fieldset>
-              <legend>对象字面量后写 <code>as const</code>，<code>status</code> 属性会怎样？</legend>
+              <legend>第 1 题 · 对象字面量后写 <code>as const</code>，<code>status</code> 属性会怎样？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>属性保留为字面量并禁止重新赋值</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>属性拓宽成字符串并允许重新赋值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · const status = &quot;draft&quot; 与 let status = &quot;draft&quot; 的常见推断有什么不同？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前者保留字面量类型，后者扩大为字符串</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前者扩大为字符串，后者保留字面量类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · const note = { title: &quot;Draft&quot; } 中，title 通常为什么推断为 string？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>绑定不可重新赋值，所以对象属性已只读</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>绑定不可重新赋值，但对象属性仍可修改</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · 没有写返回类型标注时，TypeScript 如何处理普通函数的返回类型？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>忽略函数的返回表达式放弃检查</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>根据函数的返回表达式推断类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 对对象字面量使用 as const，会在 JavaScript 运行时冻结对象吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>不会，它改变静态类型而不执行冻结</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>会的，它改变静态类型并且执行冻结</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

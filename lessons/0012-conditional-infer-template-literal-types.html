@@ -377,9 +377,45 @@ createNoteEvent&lt;Kind extends string&gt;(
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="1">
             <fieldset>
-              <legend>条件类型 <code>T extends U ? X : Y</code> 中的 extends 表示什么？</legend>
+              <legend>第 1 题 · 条件类型 <code>T extends U ? X : Y</code> 中的 extends 表示什么？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>在运行时检查 T 是否继承 U，再执行对应的代码分支</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>在类型层检查 T 能否赋给 U，再选择对应的结果类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 条件类型中的 infer Item 在匹配数组元素位置时做什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>为运行时的数组元素命名，供循环语句使用</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>为匹配出的元素类型命名，供结果类型使用</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · ToArray&lt;T&gt; = T extends unknown ? T[] : never 接收 string | number 时，会怎样处理？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>对联合逐成员计算，再联合各成员的结果</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>把联合当整体计算，得到可混装元素数组</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 把条件两侧写成 [T] extends [U]，相对裸类型参数判断有什么效果？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>阻止逐成员分布，让联合整体参与判断</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>强制逐成员分布，让联合分别参与判断</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 模板字面量类型得到 &quot;note:add&quot; | &quot;note:list&quot; 后，会自动创建对应字符串值吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>会的，类型系统会自动生成全部字符串</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>不会，运行时仍需代码实际构造字符串</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

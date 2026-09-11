@@ -406,9 +406,45 @@
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="0">
             <fieldset>
-              <legend>Partial&lt;T&gt; 对对象类型 T 做了什么？</legend>
+              <legend>第 1 题 · Partial&lt;T&gt; 对对象类型 T 做了什么？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>保留 T 的属性和值类型，只把每个属性变成可选项</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>复制 T 的运行时对象，再把每个缺失属性填成空值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · Omit&lt;Note, &quot;id&quot;&gt; 会从运行时 note 对象里删除 id 吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>不会，它只改变静态可见的属性集合</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>会的，它会改变对象实际拥有的属性</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · 对嵌套对象使用 Readonly&lt;T&gt;，本课如何描述其边界？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>会处理所有层级，并执行递归冻结</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>只处理外层属性，不执行递归冻结</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · Record&lt;&quot;active&quot; | &quot;archived&quot;, string&gt; 要求什么样的对象？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>任意键都可以缺席，值都可以是任意值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>两个键都必须存在，值都必须是字符串</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 更新类型里加入 id?: never，在本项目的可选属性规则下解决什么问题？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>允许不提供标识符，但拒绝提供标识符值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>要求提供标识符值，但允许修改标识符值</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

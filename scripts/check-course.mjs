@@ -22,6 +22,7 @@ const REQUIRED_SECTIONS = [
 const REQUIRED_LEARNER_MARKERS = ["由你创建或修改：", "不要修改："];
 const REMOVED_RUNNER_NAME = "runExamples";
 const EXAMPLE_NAME_PATTERN = /^[a-z][A-Za-z0-9]*$/;
+const QUIZZES_PER_LESSON = 5;
 
 const indexHtml = await readFile(path.join(ROOT, "index.html"), "utf8");
 const roadmapEntries = [...indexHtml.matchAll(/<li data-lesson="\d{2}" data-status="(published|planned)">/g)];
@@ -84,36 +85,44 @@ for (const lessonFile of LESSONS) {
     failures.push(error instanceof Error ? error.message : String(error));
   }
 
-  const answerMatch = html.match(/data-quiz data-answer="(\d+)"/);
-  const optionMatches = [
-    ...html.matchAll(/<span data-quiz-option>([^<]+)<\/span>/g),
-  ];
-  const radioMatches = [
-    ...html.matchAll(/<input type="radio" name="answer" value="[01]" required>/g),
-  ];
-
-  if (!answerMatch || optionMatches.length !== 2 || radioMatches.length !== 2) {
-    failures.push(`${lessonFile} must contain one two-option quiz.`);
-    continue;
+  const quizSection = html.match(/<section id="quiz"[^>]*>([\s\S]*?)<\/section>/)?.[1] ?? "";
+  const quizzes = [...quizSection.matchAll(/<form\b[^>]*\sdata-quiz\b[^>]*>[\s\S]*?<\/form>/g)];
+  if (quizzes.length !== QUIZZES_PER_LESSON) {
+    failures.push(`${lessonFile} must contain exactly ${QUIZZES_PER_LESSON} quizzes in #quiz; found ${quizzes.length}.`);
   }
-
-  const optionLengths = optionMatches.map((match) =>
-    Array.from(match[1].trim()).length,
-  );
-  if (optionLengths[0] !== optionLengths[1]) {
-    failures.push(
-      `${lessonFile} quiz options must have equal character length; found ${optionLengths.join(" and ")}.`,
-    );
+  const lessonAnswers = [];
+  const questions = new Set();
+  for (const [index, [quiz]] of quizzes.entries()) {
+    const label = `${lessonFile} quiz ${index + 1}`;
+    const answerMatch = quiz.match(/data-answer="([01])"/);
+    const options = [...quiz.matchAll(/<span data-quiz-option>([^<]+)<\/span>/g)];
+    const radios = [...quiz.matchAll(/<input type="radio" name="answer" value="([01])" required>/g)];
+    if (!answerMatch || options.length !== 2 || radios.length !== 2 || new Set(radios.map((match) => match[1])).size !== 2) {
+      failures.push(`${label} must contain two distinct answer options and a valid answer.`);
+    } else {
+      lessonAnswers.push(Number(answerMatch[1]));
+    }
+    const optionLengths = options.map((match) => Array.from(match[1].trim()).length);
+    if (optionLengths[0] !== optionLengths[1]) {
+      failures.push(`${label} options must have equal character length; found ${optionLengths.join(" and ")}.`);
+    }
+    const question = quiz.match(/<legend>([\s\S]*?)<\/legend>/)?.[1].replace(/^第 \d+ 题 · /, "").trim();
+    if (!question || questions.has(question)) {
+      failures.push(`${label} must have a unique, non-empty question.`);
+    }
+    questions.add(question);
+    if (!/<button\b[^>]*type="submit"/.test(quiz) || !/<p\b[^>]*data-quiz-feedback[^>]*aria-live="polite"/.test(quiz)) {
+      failures.push(`${label} needs its own submit button and aria-live feedback.`);
+    }
   }
-
-  if (!html.includes("aria-live=\"polite\"")) {
-    failures.push(`${lessonFile} quiz feedback needs aria-live.`);
+  if (Math.abs(lessonAnswers.filter((answer) => answer === 0).length * 2 - lessonAnswers.length) > 1) {
+    failures.push(`${lessonFile} quiz answer positions must be balanced within the lesson.`);
   }
+  answerPositions.push(...lessonAnswers);
+
   if (!/<section id="solution"[\s\S]*?<details>[\s\S]*?<summary>/.test(html)) {
     failures.push(`${lessonFile} solution must use keyboard-accessible details/summary.`);
   }
-
-  answerPositions.push(Number(answerMatch[1]));
 }
 
 const firstAnswers = answerPositions.filter((position) => position === 0).length;
@@ -135,4 +144,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Course contract verified: 24-roadmap, ${LESSONS.length} published lessons, balanced quizzes.`);
+console.log(`Course contract verified: 24-roadmap, ${LESSONS.length} published lessons, ${QUIZZES_PER_LESSON} balanced quizzes per lesson.`);

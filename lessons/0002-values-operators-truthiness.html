@@ -297,9 +297,45 @@
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="1">
             <fieldset>
-              <legend>空数组 <code>[]</code> 出现在 JavaScript 条件中时会怎样？</legend>
+              <legend>第 1 题 · 空数组 <code>[]</code> 出现在 JavaScript 条件中时会怎样？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>空数组会被当成假值处理</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>空数组会被当成真值处理</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · const tags = [&quot;ts&quot;] 之后调用 tags.push(&quot;node&quot;)，会发生什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>数组不能增加元素，绑定已经禁止修改</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>数组可以增加元素，绑定没有重新赋值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · 怎样判断一个值是否就是 NaN，而不先进行隐式转换？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>使用 Number.isNaN 检查这个值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>使用 Number.isNaN 转换这个值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 表达式 3 === &quot;3&quot; 的结果怎样解释？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>结果为假，严格相等不会转换类型</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>结果为真，严格相等会先转换类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 为什么不能只用 if (title) 拒绝全部空白的标题？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>空白字符串已是假值，无需先去掉空白</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>空白字符串仍是真值，需要先去掉空白</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

@@ -264,9 +264,45 @@ export function demoWelcome(): string {
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="0">
             <fieldset>
-              <legend>哪一个函数声明明确要求输入与输出都是 <code>string</code>？</legend>
+              <legend>第 1 题 · 哪一个函数声明明确要求输入与输出都是 <code>string</code>？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>function greet(name: string): string</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>function greet(name: number): number</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · 需要给变量重新赋值时，应选择哪一种声明？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>使用 let 声明可以重新赋值的变量</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>使用 const 声明可重新赋值变量</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · 表示普通字符串值的类型标注，应使用哪一种写法？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>使用大写 String 表示原始字符串</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>使用小写 string 表示原始字符串</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · 模板字符串 <code>Hello, ${name}</code> 中的插值会做什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>把 name 变量的名字插入文本</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>把 name 变量当前值插入文本</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 函数签名末尾的 : string 与函数体中的 return 分别负责什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前者约束返回类型，后者交回实际值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前者交回实际值，后者约束返回类型</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

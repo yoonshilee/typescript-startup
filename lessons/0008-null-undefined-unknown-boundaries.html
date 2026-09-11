@@ -357,9 +357,45 @@ export function demoOptionalBody(): string {
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="1">
             <fieldset>
-              <legend>为什么接收 unknown 的值后必须先收窄？</legend>
+              <legend>第 1 题 · 为什么接收 unknown 的值后必须先收窄？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>因为 unknown 在运行时会自动转换为安全字符串</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>因为 unknown 在收窄前不能直接使用字符串能力</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 当 count 是 0 时，count ?? 10 与 count || 10 的结果有什么不同？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前者使用默认值，后者保留零</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前者保留零，后者使用默认值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · 在 exactOptionalPropertyTypes 下，body?: string 对显式 undefined 赋值意味着什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>允许缺少属性，不自动允许显式空缺值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>允许缺少属性，也自动允许显式空缺值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 在 value 后加非空断言 !，会在运行时检查并拦截空值吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>不会，断言只影响类型检查的结果</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>会的，断言会增加运行时检查代码</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 用 typeof value === &quot;object&quot; 判断后，为什么还要排除 null？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>因为空值会被转换成一个普通对象</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>因为空值也会得到对象类别的结果</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

@@ -85,7 +85,54 @@ findDuplicateNoteIds(
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 两种状态</summary><p>一个 Set 表示见过，另一个表示已经报告。</p></details><details><summary>提示 2 · 何时 push</summary><p>seen 有 id 且 duplicates 没有时。</p></details><details><summary>提示 3 · 一次循环</summary><p>每次处理后确保 seen 包含当前 id。</p></details></section>
 
-        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="1"><fieldset><legend>Node 测试怎样判定失败？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>测试失败必须手动退出，异步拒绝不会失败</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>测试失败就是断言抛出，异步拒绝也会失败</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 1 题 · Node 测试怎样判定失败？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>测试失败必须手动退出，异步拒绝不会失败</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>测试失败就是断言抛出，异步拒绝也会失败</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 两个分别创建但内容相同的普通对象，应该用什么断言比较数据结构？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>使用对象身份断言，而不是深度相等断言</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>使用深度相等断言，而不是对象身份断言</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · 在异步测试中为什么要 await assert.rejects(...)？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>确保断言完成前，测试不会提前结束</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>确保断言被跳过，测试可以提前结束</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 文件测试为什么要为每次运行创建唯一临时目录？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>隔离每次测试的副作用，避免互相覆盖</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>共享每次测试的副作用，避免单独清理</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 修复一个已复现的错误后，为什么还要留下最小回归测试？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>以后行为再次退化时，测试能自动修复实现</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>以后行为再次退化时，测试能给出失败证据</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
 
         <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>export type DuplicateNote = { readonly id: string };
 

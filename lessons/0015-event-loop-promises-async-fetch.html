@@ -371,9 +371,45 @@ loadNoteTitles(
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="0">
             <fieldset>
-              <legend><code>await promise</code> 最准确的执行效果是什么？</legend>
+              <legend>第 1 题 · <code>await promise</code> 最准确的执行效果是什么？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>暂停当前 async 函数并让事件循环中的其他任务继续推进</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>阻塞当前 Node 线程直到 Promise 完成后再返回</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · 对异步回调使用 map，直接得到的通常是什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>得到一组等待处理的 Promise 对象</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>得到一组已完成的业务结果，不含等待的对象</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · Promise.all 中第二个任务先完成，结果数组会按什么顺序排列？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>按照完成先后排列，不按照任务输入顺序</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>按照输入位置排列，不按照任务完成顺序</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · Promise.all 因一个任务拒绝而拒绝时，其他已启动任务会自动取消吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>会，组合器会强制停止其他任务</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>不会，取消需要显式的协作协议</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · fetch 收到 HTTP 404，为什么还需要检查 response.ok？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>请求可能正常完成，但状态仍表示失败</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>请求必定直接拒绝，但状态仍表示成功</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

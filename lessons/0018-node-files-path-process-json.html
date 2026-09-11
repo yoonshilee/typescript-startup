@@ -102,7 +102,54 @@ persistNotes(
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 父目录</summary><p><code>dirname(filePath)</code>。</p></details><details><summary>提示 2 · 稳定文本</summary><p><code>JSON.stringify([...notes], null, 2) + "\n"</code>。</p></details><details><summary>提示 3 · 写入顺序</summary><p>await mkdir，再 await writeFile。</p></details></section>
 
-        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="1"><fieldset><legend>怎样生成跨平台文件路径？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>join固定生成斜杠路径，可以手写分隔符号</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>join按当前系统生成路径，不能手写分隔符</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 1 题 · 怎样生成跨平台文件路径？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>join固定生成斜杠路径，可以手写分隔符号</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>join按当前系统生成路径，不能手写分隔符</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 从别的目录启动同一个脚本，process.cwd() 通常会表示哪里？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>表示源码所在目录，不是进程启动目录</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>表示进程启动目录，不是源码所在目录</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · JSON.stringify({ title: &quot;Draft&quot;, missing: undefined }) 会怎样处理 missing？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>对象中的该属性会从输出文本中省略</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>对象中的该属性会以空字符串来保存</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 写文件之前需要先创建父目录，这两个异步操作应怎样安排？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>先等待建目录成功，再启动文件写入</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>先启动两个操作，再去等待各自完成</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 为什么持久化格式优先使用普通对象和数组，而不直接保存 Map 或 Set？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>它们的集合语义会被 JSON 自动还原好</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>它们的集合语义不会被 JSON 自动保留</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
 
         <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";

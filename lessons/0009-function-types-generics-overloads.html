@@ -382,9 +382,45 @@ export function demoFunctionType(): string {
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="0">
             <fieldset>
-              <legend>泛型参数 T 在 createFilter 中表达什么？</legend>
+              <legend>第 1 题 · 泛型参数 T 在 createFilter 中表达什么？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>同一个元素类型贯穿判断函数、输入数组与输出数组</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>运行时创建名为 T 的对象并为数组元素保存状态</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · 接收方每次都会给回调传 index，为什么不应把它声明为可选参数？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>可选表示可能不传，不表示回调可以忽略</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>可选表示可以忽略，不表示接收方会漏传</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · 用 identity&lt;T&gt;(value: T): T 而非 any 返回值，主要保留什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>取消输入与输出之间的类型对应关系</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>保留输入与输出之间的类型对应关系</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · 多个重载签名下的 implementation signature，对外是否是额外一种可调用签名？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>是的，它会自动成为额外公开重载</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>不是，它只负责兼容各个公开重载</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 几个输入类型共用同一种返回契约时，通常优先用哪种表达？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>使用联合参数，避免枚举无必要的重载</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>使用多条重载，避免联合表达共同契约</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

@@ -417,9 +417,45 @@ createNoteFactory(
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="0">
             <fieldset>
-              <legend>JavaScript 闭包保存的核心关系是什么？</legend>
+              <legend>第 1 题 · JavaScript 闭包保存的核心关系是什么？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>函数创建时对外层词法环境变量的持续引用关系</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>函数返回时对外层局部变量当前值的完整深拷贝</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · Node 直接运行可擦除语法的 .ts 文件，可以替代 pnpm typecheck 吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>不可以，擦除类型不等于检查类型契约</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>可以的，擦除类型同时会检查类型契约</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · 同一工厂函数调用两次，各自返回的计数闭包通常共享哪个局部计数器？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>共同捕获首次调用的绑定，会共享计数器</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>各自捕获本次调用的绑定，不共享计数器</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · 普通 class 方法声明所在的共享位置是什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>方法位于实例上，每次创建都深拷贝它</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>方法位于原型上，实例沿原型链找到它</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 把依赖 this 的方法取出后独立调用，为什么可能失败？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>调用失去接收者，可用绑定或闭包保留它</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>函数失去类型名，可用断言或别名恢复它</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

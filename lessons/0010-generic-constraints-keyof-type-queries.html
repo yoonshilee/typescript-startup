@@ -360,9 +360,45 @@
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="1">
             <fieldset>
-              <legend>在 getProperty&lt;T, K extends keyof T&gt; 中，T[K] 表示什么？</legend>
+              <legend>第 1 题 · 在 getProperty&lt;T, K extends keyof T&gt; 中，T[K] 表示什么？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>把属性键 K 在运行时写进对象 T 对应的值位置</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>读取对象类型 T 在属性键 K 位置对应的值类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · T extends { id: string } 会把传入对象的额外属性从 T 中删掉吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>会的，约束会把类型缩成仅剩标识符</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>不会，约束只要求满足最小结构能力</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · keyof Note 会在运行时创建一个键名数组吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>不会，它只在类型层形成键名联合</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>会的，它会在运行时形成键名数组</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 类型位置的 typeof config 与表达式位置的 typeof config 有什么不同？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前者读取静态类型，后者返回类别字符串</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前者返回类别字符串，后者读取静态类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 通过 T[K] 读取可选属性的类型时，会保留 undefined 的可能性吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>不保留，索引访问类型会自动消除空缺值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>会保留，索引访问类型不会消除属性缺失</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

@@ -404,9 +404,45 @@
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="1">
             <fieldset>
-              <legend>执行 <code>array.push(value)</code> 后，哪个描述准确？</legend>
+              <legend>第 1 题 · 执行 <code>array.push(value)</code> 后，哪个描述准确？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>直接追加会返回全新数组对象</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>直接追加会修改原有数组对象</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 对数组调用 map，与调用 find，返回形态有什么不同？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前者返回匹配项，后者返回全部元素数组</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前者返回新数组，后者返回匹配项或空缺</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · 将两个内容相同但分别创建的对象加入 Set，会保留几个？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>保留两个，对象按引用判断是否相同</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>保留一个，对象按内容判断是否相同</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · const copy = { ...note } 没有替换 note.tags 时，两者的 tags 是什么关系？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>仍指向同一数组，展开只复制一层</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>会指向不同数组，展开递归复制值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 对象展开中，后写的属性与前面展开的属性同名时会怎样？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前面的属性值会覆盖后写的属性值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>后写的属性值会覆盖前面的属性值</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

@@ -282,9 +282,45 @@
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="0">
             <fieldset>
-              <legend><code>createTagNormalizer</code> 必须返回什么？</legend>
+              <legend>第 1 题 · <code>createTagNormalizer</code> 必须返回什么？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>一个接收 string 并返回 string 的函数</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>一个接收 number 并返回 number 的函数</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · 函数在某个 if 分支执行 return 后，函数体后面的语句还会执行吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>本次函数调用结束，后续语句不再执行</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>仅当前分支结束，后续语句仍继续执行</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · 需要依次读取数组中的元素值时，for...of 与 for...in 应怎样选择？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前者枚举属性键，后者读取元素值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前者读取元素值，后者枚举属性键</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · 循环中的 continue 与 break 有什么不同？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前者结束当前整个循环，后者跳过本轮</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前者跳过本轮剩余代码，后者结束循环</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 把函数作为参数传入另一个函数时，传递的是什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>传递可供接收方调用的函数值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>传递该函数已经算出的返回值</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

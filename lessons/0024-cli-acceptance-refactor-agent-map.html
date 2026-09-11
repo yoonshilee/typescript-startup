@@ -91,7 +91,54 @@ executeNoteCommand(
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 外层结构</summary><p>一个 try/catch 包住按 kind 分支。</p></details><details><summary>提示 2 · list 文本</summary><p>map 后 join("\n")，非空时再加末尾换行。</p></details><details><summary>提示 3 · 失败</summary><p>复用第 16 课的 <code>error instanceof Error ? error.message : String(error)</code>。</p></details></section>
 
-        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="1"><fieldset><legend>最终 CLI 编排怎样保持可测试？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>命令编排直接读写全局进程，捕获后固定退出码</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>命令编排依赖接口边界，返回明确退出码和文本</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 1 题 · 最终 CLI 编排怎样保持可测试？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>命令编排直接读写全局进程，捕获后固定退出码</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>命令编排依赖接口边界，返回明确退出码和文本</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 列表命令没有查到笔记时，本课程应如何表达结果？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>返回失败与空列表，退出码为非零</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>返回成功与空列表，退出码仍为零</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · 命令编排只依赖 add/list 能力而不读取全局进程，有什么测试收益？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>可以注入小型替身，单独验证命令行为</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>必须启动真实进程，才能验证命令行为</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 重构时为什么先确认绿色测试基线，并保留行为断言？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>用于比较重构前后行为，证明契约仍然成立</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>用于替代重构后的验证，证明实现无需检查</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 模型输出准备进入会写数据的工具时，应如何处理？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>先信任模型的输出，再让工具自行扩大权限</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>先当未知数据校验，再在明确权限边界执行</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
 
         <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>export type CliNote = { readonly id: string; readonly title: string };
 export type FinalNoteCommand =

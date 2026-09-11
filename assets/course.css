@@ -545,6 +545,10 @@ hr {
   border-radius: var(--radius-card);
 }
 
+.quiz + .quiz {
+  margin-block-start: var(--space-md);
+}
+
 .callout strong {
   color: var(--color-accent);
 }

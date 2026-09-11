@@ -397,9 +397,45 @@ captureLoadResult&lt;T&gt;(
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="1">
             <fieldset>
-              <legend>严格 TypeScript 中应怎样处理 catch 变量？</legend>
+              <legend>第 1 题 · 严格 TypeScript 中应怎样处理 catch 变量？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>默认认定其为 Error 并直接读取 message 与 stack</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>先视为 unknown 再由 instanceof Error 收窄</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 为错误增加上下文时，Error 的 cause 用来保留什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>保留最新错误文本，并丢弃原始失败原因</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>保留原始失败原因，而不只复制错误文本</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · 使用 Result 表达预期失败后，调用方应怎样读取 value？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>先检查成功判别字段，再读取成功值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>先读取成功值，再判断是否需要检查</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 在 finally 中 return 一个新值，可能造成什么问题？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>会覆盖原有返回或异常，掩盖先前结果</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>只负责释放占用资源，不影响先前结果</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 调用 controller.abort()，能强制中断不观察 signal 的同步循环吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>可以，取消会直接终止该同步循环</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>不能，取消需要实际操作主动配合</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

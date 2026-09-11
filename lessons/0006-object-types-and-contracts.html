@@ -469,9 +469,45 @@ export function buildSearchDefaults() {
           <h2>概念测验</h2>
           <form class="quiz" data-quiz data-answer="1">
             <fieldset>
-              <legend><code>body?: string</code> 对一个对象意味着什么？</legend>
+              <legend>第 1 题 · <code>body?: string</code> 对一个对象意味着什么？</legend>
               <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>属性必须存在且值可以是任意字符串</span></label>
               <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>属性可以缺少且存在时必须是字符串</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 关于 type 与 interface，哪一个区别符合本课说明？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>别名支持同名声明合并，接口可表示联合</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>接口支持同名声明合并，别名可表示联合</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · 把一个对象赋给兼容的接口类型变量，会复制这个对象吗？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>不会复制对象，类型检查不创建运行时值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>会先复制对象，类型检查会创建运行时值</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · readonly 属性对运行时嵌套对象有什么保证？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>只限制静态赋值，不保证深层运行时冻结</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>会限制静态赋值，并保证深层运行时冻结</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 表达式 satisfies Note 的主要作用是什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>转换运行时结构，同时删除多余的字段值</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>检查结构兼容性，同时保留表达式的推断</span></label>
             </fieldset>
             <button class="button" type="submit">检查答案</button>
             <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>

@@ -87,7 +87,54 @@ parseApiNote(value: unknown): ApiNote</code></pre>
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 普通对象</summary><p>先检查 typeof、null 与 Array.isArray；通过后可用 <code>Record&lt;string, unknown&gt;</code> 的局部谓词辅助。</p></details><details><summary>提示 2 · 字段</summary><p>分别读取 id、title、tags，再一次判断所有条件。</p></details><details><summary>提示 3 · 返回</summary><p><code>{ id, title, tags: [...tags] }</code>。</p></details></section>
 
-        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="0"><fieldset><legend>unknown 何时能成为领域数据？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>unknown必须逐层检查结构后才进入领域类型</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>unknown可直接断言类型后进入领域数据使用</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 1 题 · unknown 何时能成为领域数据？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>unknown必须逐层检查结构后才进入领域类型</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>unknown可直接断言类型后进入领域数据使用</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · 检查到外部对象含有 title 属性后，能否直接认定它是字符串？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>不能，还要验证这个属性值的具体类型</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>可以，属性存在已经证明它属于字符串</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · Array.isArray(tags) 能否证明 tags 的每一个元素都是字符串？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>可以，数组检查已经包含了元素检查</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>不能，还要逐个验证数组元素的类型</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · 校验外部 tags 后复制数组，主要是为了避免什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>避免内部类型检查再次读取外部属性名称</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>避免外部后续修改影响已接收的领域数据</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 解析后重新构造领域对象，而非原样返回输入，有什么作用？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>只带入已验证字段，不让额外字段自动扩散</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>带入输入全部字段，不让额外字段发生丢失</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
 
         <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>export type ApiNote = {
   readonly id: string;

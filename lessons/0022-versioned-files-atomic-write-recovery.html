@@ -80,7 +80,54 @@ writeNotesAtomically(
 
         <section id="hints" class="lesson-section"><h2>三层提示</h2><details><summary>提示 1 · 临时路径</summary><p>组合 dirname、basename 与 randomUUID，确保同目录。</p></details><details><summary>提示 2 · try 包住什么</summary><p>writeFile 与 rename 放在 try，rm 放 finally。</p></details><details><summary>提示 3 · rename 成功后</summary><p>旧 tempPath 已不存在，force rm 仍安全。</p></details></section>
 
-        <section id="quiz" class="lesson-section"><h2>概念测验</h2><form class="quiz" data-quiz data-answer="1"><fieldset><legend>怎样避免失败时留下半个目标文件？</legend><label><input type="radio" name="answer" value="0" required> <span data-quiz-option>直接覆盖目标文件，失败之后才尝试恢复原有文件</span></label><label><input type="radio" name="answer" value="1" required> <span data-quiz-option>先写同目录临时文件，再rename替换原文件</span></label></fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form></section>
+        <section id="quiz" class="lesson-section">
+          <h2>概念测验</h2>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 1 题 · 怎样避免失败时留下半个目标文件？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>直接覆盖目标文件，失败之后才尝试恢复原有文件</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>先写同目录临时文件，再rename替换原文件</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 2 题 · 持久化文件的 version 什么时候应该变化？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>当应用每次重新发布时，不必检查格式变化</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>当文件格式协议变化时，不必跟随每次发布</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 3 题 · 读到损坏 JSON 或未知版本，为什么不能当作空笔记继续覆盖保存？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>会丢掉原有数据，应明确报告读取失败</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>会保留原有数据，可忽略全部读取错误</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 4 题 · 原子替换的临时文件为什么放在目标文件所在目录？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>便于保持同一文件系统，再用重命名切换</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>便于跨越不同文件系统，再用重命名合并</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 5 题 · 原子 rename 能否同时解决多个写入进程的全部并发冲突？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>可以，防止半文件就等于完成并发隔离</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>不能，防止半文件不等于解决并发更新</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+        </section>
 
         <section id="solution" class="lesson-section"><h2>折叠完整答案与逐行解析</h2><details><summary>显示完整答案</summary><div class="solution-body"><pre><code>import { randomUUID } from "node:crypto";
 import { mkdir, rename, rm, writeFile } from "node:fs/promises";

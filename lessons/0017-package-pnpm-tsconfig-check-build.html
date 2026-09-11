@@ -141,10 +141,51 @@ createBuildPlan(
 
         <section id="quiz" class="lesson-section">
           <h2>概念测验</h2>
-          <form class="quiz" data-quiz data-answer="0"><fieldset><legend>typecheck 与 build 的职责怎样区分？</legend>
-            <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>检查只报告问题，构建才生成运行产物</span></label>
-            <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>检查会生成产物，构建只报告运行问题</span></label>
-          </fieldset><button type="submit">检查答案</button><p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p></form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 1 题 · typecheck 与 build 的职责怎样区分？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>检查只报告问题，构建才生成运行产物</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>检查会生成产物，构建只报告运行问题</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 2 题 · package.json 中 scripts 的名称与值分别承担什么职责？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>名称是调用入口，值是实际执行的命令</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>名称是实际命令，值是调用入口的说明</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 3 题 · packageManager 与 lockfile 分别主要记录什么？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前者固定依赖解析，后者记录工具版本</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前者记录工具版本，后者固定依赖解析</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="1">
+            <fieldset>
+              <legend>第 4 题 · tsconfig 中 include 与 rootDir 的职责有什么不同？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>前者约束产物结构，后者决定输入文件集合</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>前者选择输入文件，后者约束产物相对结构</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
+          <form class="quiz" data-quiz data-answer="0">
+            <fieldset>
+              <legend>第 5 题 · 构建发现类型错误时，应怎样对待这个失败？</legend>
+              <label><input type="radio" name="answer" value="0" required> <span data-quiz-option>先处理类型失败，不应悄悄跳过检查</span></label>
+              <label><input type="radio" name="answer" value="1" required> <span data-quiz-option>先跳过类型检查，不必处理类型失败</span></label>
+            </fieldset>
+            <button class="button" type="submit">检查答案</button>
+            <p class="quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+          </form>
         </section>
 
         <section id="solution" class="lesson-section">
